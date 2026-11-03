@@ -1,4 +1,4 @@
-import { smoothstep, clamp } from '../util.js';
+import { smoothstep, smootherstep, clamp } from '../util.js';
 
 // 25 秒の台本(8 回の操作)。ロボットの状態は「時刻 t だけで決まる」ようにする。
 // どこへ飛んでも(シーク・?t= の静止画)同じ絵になる。
@@ -19,14 +19,14 @@ export const ACTIONS = [
 // 右の ASSEMBLIES ボタン → 飛ぶ先の操作
 export const ASSEMBLY_JUMP = { HERO: 'inbound', OPTICS: 'optics', MANTLE: 'mantle', 'ARM R2': 'arm', SIPHON: 'siphon', BEAK: 'beak' };
 
-// [時刻, 値] の並びをなめらかにつなぐ(値は数か配列。端の外は端の値)
+// [時刻, 値] の並びをなめらかにつなぐ(値は数か配列。端の外は端の値)。出だしと止まりをやわらかく
 export function keys(t, list) {
   if (t <= list[0][0]) return list[0][1];
   for (let i = 1; i < list.length; i++) {
     const [t1, v1] = list[i];
     if (t > t1) continue;
     const [t0, v0] = list[i - 1];
-    const u = smoothstep(0, 1, (t - t0) / (t1 - t0));
+    const u = smootherstep(0, 1, (t - t0) / (t1 - t0));
     return Array.isArray(v0) ? v0.map((a, j) => a + (v1[j] - a) * u) : v0 + (v1 - v0) * u;
   }
   return list[list.length - 1][1];
@@ -54,12 +54,21 @@ const ROT = [
 export const posAt = (t) => keys(t, POS);
 export const rotAt = (t) => keys(t, ROT);
 
+// 腕の形の重み(なびく・放射状・ふだん)。腕ごとに少しずらした時刻で呼ぶと、形の変化が腕から腕へ波のように伝わる
+export function poseAt(t) {
+  const trail = keys(t, [[0, 1], [2.5, 1], [4.4, 0], [21.3, 0], [22.7, 1]]);
+  const star = keys(t, [[14.7, 0], [15.8, 1], [17.4, 1], [18.5, 0]]);
+  return { trail, star, hold: clamp(1 - trail - star) };
+}
+
+// 噴射の脈(0〜1)。1 のとき外套が縮んで水を押し出す(圧力の山)
+export const pulseAt = (t) => 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.8 * t);
+
 export function evaluate(t) {
   const i = actionIndex(t);
   const act = ACTIONS[i];
   const next = ACTIONS[i + 1]?.t ?? DURATION;
-  const trail = keys(t, [[0, 1], [2.5, 1], [4.2, 0], [21.3, 0], [22.5, 1]]);
-  const star = keys(t, [[14.7, 0], [15.6, 1], [17.4, 1], [18.3, 0]]);
+  const pose = poseAt(t);
   return {
     t,
     index: i,
@@ -73,7 +82,7 @@ export function evaluate(t) {
     beakOpen: keys(t, [[15.4, 0], [16.2, 1], [17.2, 1], [17.9, 0]]),
     siphonOpen: keys(t, [[18.4, 0], [18.9, 1], [20.5, 1], [21.0, 0]]),
     jet: jetAt(t),
-    pose: { trail, star, hold: clamp(1 - trail - star) },
+    pose,
     pos: posAt(t),
     rot: rotAt(t),
   };

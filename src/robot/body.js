@@ -1,4 +1,22 @@
 import * as THREE from 'three';
+import { hash, smootherstep } from '../util.js';
+
+const Z = new THREE.Vector3(0, 0, 1);
+const UP = new THREE.Vector3(0, 1, 0);
+const dir = new THREE.Vector3();
+const t1 = new THREE.Vector3();
+const t2 = new THREE.Vector3();
+const EYE_TURN = 0.32;   // 目が向きを変えられる角度(ラジアン)
+
+// 目のちらっと動く向き(1.4 秒ごとに次の向きへ、0.16 秒で移る)。両目は同じ向きへ
+function saccade(t, scan) {
+  const n = Math.floor(t / 1.4);
+  const f = smootherstep(0, 0.16, t - n * 1.4);
+  const amp = 1 + 2 * scan;
+  const o = (i) => [(hash(i * 1.3) - 0.5) * 0.16 * amp, (hash(i * 2.9 + 4) - 0.5) * 0.12 * amp];
+  const a = o(n - 1), b = o(n);
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+}
 
 // 座標: 胴の中心が原点、y が上、正面(目の向き)が +z。外套(頭)の半径が 1。
 export const R = 1;
@@ -207,20 +225,34 @@ export function buildBody(m) {
     body.add(ball, ring);
   }
 
-  // mantle: 外套の開き(0〜1)、scan: 目の走査、exploded: 分解図
-  function update(t, mantle, scan, exploded) {
+  // mantle: 外套の開き(0〜1)、scan: 目の走査、exploded: 分解図、look: 目が追う点(胴の座標。なければ前を見る)
+  function update(t, mantle, scan, exploded, look = null) {
     const open = Math.max(mantle, exploded * 0.35);
     seam.visible = open < 0.005;
     petals.forEach((p, k) => {
       // 1 枚ずつ少し遅れて開く
       const u = THREE.MathUtils.clamp(open * 1.15 - k * 0.02, 0, 1);
-      p.pivot.quaternion.setFromAxisAngle(p.axis, p.sign * OPEN_ANGLE * u);
+      // 開いているあいだも、花びらがゆっくり息をするように揺れる
+      p.pivot.quaternion.setFromAxisAngle(p.axis, p.sign * (OPEN_ANGLE + 0.06 * Math.sin(1.7 * t + k * 0.9)) * u);
       p.pivot.position.copy(p.home).addScaledVector(p.out, exploded * 0.28);
     });
     cap.position.y = open * 1.2 + exploded * 0.3;
     cap.rotation.y = open * 0.6;
+    const [sxo, syo] = saccade(t, scan);
     for (const eye of eyes) {
       eye.position.copy(eye.userData.home).addScaledVector(eye.userData.normal, exploded * 0.35);
+      // 目: カメラ(見ている人)のほうへ少し向き、ときどきちらっと動く
+      const n = eye.userData.normal;
+      dir.copy(n);
+      if (look) {
+        t1.copy(look).sub(eye.position).normalize();
+        const ang = n.angleTo(t1);
+        dir.lerp(t1, Math.min(1, EYE_TURN / Math.max(ang, 1e-3)) * 0.7);
+      }
+      t1.crossVectors(UP, n).normalize();
+      t2.crossVectors(n, t1);
+      dir.addScaledVector(t1, sxo).addScaledVector(t2, syo).normalize();
+      eye.quaternion.setFromUnitVectors(Z, dir);
       eye.userData.iris.rotation.z = t * 0.4 + scan * t * 2.5;
       const z = 1 - 0.45 * scan * (0.5 + 0.5 * Math.sin(t * 5));
       eye.userData.iris.scale.set(z, z, 1);

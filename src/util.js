@@ -6,6 +6,11 @@ export const smoothstep = (a, b, x) => {
   const t = clamp((x - a) / (b - a));
   return t * t * (3 - 2 * t);
 };
+// smoothstep より出だしと止まりがやわらかい(5 次)
+export const smootherstep = (a, b, x) => {
+  const t = clamp((x - a) / (b - a));
+  return t * t * t * (t * (t * 6 - 15) + 10);
+};
 // 整数 i から 0〜1 の決まった値(毎回同じ)
 export const hash = (i) => fract(Math.sin(i * 127.1 + 311.7) * 43758.5453);
 

@@ -7,7 +7,7 @@ import { pad2 } from '../util.js';
 const DESIGN_W = 1600;
 const DESIGN_H = 900;
 export const ASSEMBLIES = ['HERO', 'OPTICS', 'MANTLE', 'ARM R2', 'SIPHON', 'BEAK'];
-export const DISPLAYS = [['labels', 'LABELS'], ['exploded', 'EXPLODED'], ['wake', 'JET WAKE'], ['turntable', 'TURNTABLE']];
+export const DISPLAYS = [['labels', 'LABELS'], ['exploded', 'EXPLODED'], ['wake', 'JET WAKE'], ['turntable', 'TURNTABLE'], ['soft', 'SOFT BODY']];
 
 // 左上の印(タコの線画)
 const LOGO = `<svg viewBox="0 0 40 40" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
