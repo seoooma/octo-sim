@@ -17,8 +17,9 @@ export class Labels {
     this.key = null;
   }
 
-  // set: 名前と付け根の組、fade: 濃さ(0 で消す)、center: ロボットの中心(世界の座標)
-  update(camera, set, setKey, fade, center) {
+  // set: 名前と付け根の組、fade: 濃さ(0 で消す)、center: ロボットの中心(世界の座標)、
+  // free: 文字を置いてよい四角(画面の px。計器のパネルに隠れないように。なければ窓全体)
+  update(camera, set, setKey, fade, center, free = null) {
     if (!set || fade <= 0.001) {
       this.root.style.opacity = 0;
       return;
@@ -26,6 +27,8 @@ export class Labels {
     if (this.key !== setKey) this.build(set, setKey);
     this.root.style.opacity = fade.toFixed(3);
     const W = window.innerWidth, H = window.innerHeight;
+    const R = free ?? { x0: 0, y0: 0, x1: W, y1: H };
+    const top = R.y0 + 12, bottom = R.y1 - 12;
     const toScreen = (p) => {
       v.copy(p).project(camera);
       return { x: (v.x * 0.5 + 0.5) * W, y: (-v.y * 0.5 + 0.5) * H, behind: v.z > 1 };
@@ -40,17 +43,22 @@ export class Labels {
       const side = dx >= 0 ? 1 : -1;
       return { i, a, side, ex: a.x + dx * OUT, ey: a.y + dy * OUT };
     });
-    // 同じ側で文字が重ならないよう、上から順に間隔をあける
+    // 同じ側で文字が重ならないよう、四角の中に収めてから上から順に間隔をあける。下にはみ出したら下から詰め直す
     for (const side of [-1, 1]) {
       const list = placed.filter((p) => p.side === side).sort((p, q) => p.ey - q.ey);
+      for (const p of list) p.ey = Math.min(bottom, Math.max(top, p.ey));
       for (let k = 1; k < list.length; k++) list[k].ey = Math.max(list[k].ey, list[k - 1].ey + GAP);
+      if (list.length && list[list.length - 1].ey > bottom) {
+        list[list.length - 1].ey = bottom;
+        for (let k = list.length - 2; k >= 0; k--) list[k].ey = Math.min(list[k].ey, list[k + 1].ey - GAP);
+      }
     }
     for (const p of placed) {
       const el = this.items[p.i];
       // 文字が画面の外へはみ出さないよう、幅の分だけ内側に寄せる
       const w = el.width || (el.width = el.div.offsetWidth);
-      const lx = p.side > 0 ? Math.min(W - w - 6, p.ex + TAIL) : Math.max(w + 6, p.ex - TAIL);
-      const ly = Math.min(H - 20, Math.max(20, p.ey));
+      const lx = p.side > 0 ? Math.min(R.x1 - w - 6, p.ex + TAIL) : Math.max(R.x0 + w + 6, p.ex - TAIL);
+      const ly = p.ey;
       el.dot.setAttribute('cx', p.a.x.toFixed(1));
       el.dot.setAttribute('cy', p.a.y.toFixed(1));
       el.line.setAttribute('points', `${p.a.x.toFixed(1)},${p.a.y.toFixed(1)} ${p.ex.toFixed(1)},${ly.toFixed(1)} ${(lx - p.side * 6).toFixed(1)},${ly.toFixed(1)}`);

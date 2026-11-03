@@ -4,16 +4,17 @@ import { smoothstep, smootherstep, clamp } from '../util.js';
 // どこへ飛んでも(シーク・?t= の静止画)同じ絵になる。
 export const DURATION = 25;
 
-// mode: 画面の大きな文字、log: 下のタイムラインの文字、assembly: 右の ASSEMBLIES のどれが光るか、labels: 引き出し線の組
+// peak: 見どころの時刻(止めているとき ASSEMBLIES を押すとここへ飛ぶ)、mode: 画面の大きな文字、log: 下のタイムラインの文字、
+// assembly: 右の ASSEMBLIES のどれが光るか、labels: 引き出し線の組
 export const ACTIONS = [
-  { t: 0.0, key: 'inbound', mode: 'JETTING', log: 'INBOUND · JET ASSIST', assembly: 'HERO', labels: null },
-  { t: 3.5, key: 'hold', mode: 'HOLDING', log: 'OPERATOR · HOLD STATION', assembly: 'HERO', labels: null },
-  { t: 6.0, key: 'mantle', mode: 'MANTLE OPEN', log: 'OPERATOR · ISOLATE MANTLE', assembly: 'MANTLE', labels: 'mantle' },
-  { t: 9.0, key: 'arm', mode: 'ARM R2 APART', log: 'OPERATOR · ISOLATE ARM R2', assembly: 'ARM R2', labels: 'arm' },
-  { t: 12.2, key: 'optics', mode: 'OPTICS SCAN', log: 'OPERATOR · ISOLATE OPTICS', assembly: 'OPTICS', labels: 'optics' },
-  { t: 14.6, key: 'beak', mode: 'BEAK OPEN', log: 'OPERATOR · ISOLATE BEAK', assembly: 'BEAK', labels: 'beak' },
-  { t: 18.2, key: 'siphon', mode: 'SIPHON TEST', log: 'OPERATOR · ISOLATE SIPHON', assembly: 'SIPHON', labels: 'siphon' },
-  { t: 21.2, key: 'depart', mode: 'DEPARTING', log: 'OPERATOR · HERO · RELEASE', assembly: 'HERO', labels: null },
+  { t: 0.0, key: 'inbound', peak: 1.0, mode: 'JETTING', log: 'INBOUND · JET ASSIST', assembly: 'HERO', labels: null },
+  { t: 3.5, key: 'hold', peak: 5.2, mode: 'HOLDING', log: 'OPERATOR · HOLD STATION', assembly: 'HERO', labels: null },
+  { t: 6.0, key: 'mantle', peak: 7.9, mode: 'MANTLE OPEN', log: 'OPERATOR · ISOLATE MANTLE', assembly: 'MANTLE', labels: 'mantle' },
+  { t: 9.0, key: 'arm', peak: 11.0, mode: 'ARM R2 APART', log: 'OPERATOR · ISOLATE ARM R2', assembly: 'ARM R2', labels: 'arm' },
+  { t: 12.2, key: 'optics', peak: 13.6, mode: 'OPTICS SCAN', log: 'OPERATOR · ISOLATE OPTICS', assembly: 'OPTICS', labels: 'optics' },
+  { t: 14.6, key: 'beak', peak: 16.6, mode: 'BEAK OPEN', log: 'OPERATOR · ISOLATE BEAK', assembly: 'BEAK', labels: 'beak' },
+  { t: 18.2, key: 'siphon', peak: 19.8, mode: 'SIPHON TEST', log: 'OPERATOR · ISOLATE SIPHON', assembly: 'SIPHON', labels: 'siphon' },
+  { t: 21.2, key: 'depart', peak: 23.5, mode: 'DEPARTING', log: 'OPERATOR · HERO · RELEASE', assembly: 'HERO', labels: null },
 ];
 
 // 右の ASSEMBLIES ボタン → 飛ぶ先の操作
@@ -61,8 +62,9 @@ export function poseAt(t) {
   return { trail, star, hold: clamp(1 - trail - star) };
 }
 
-// 噴射の脈(0〜1)。1 のとき外套が縮んで水を押し出す(圧力の山)
-export const pulseAt = (t) => 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.8 * t);
+// 噴射の脈(0〜1)。1 のとき水を押し出す(圧力の山)
+export const PULSE_HZ = 1.8;
+export const pulseAt = (t) => 0.5 + 0.5 * Math.sin(2 * Math.PI * PULSE_HZ * t);
 
 export function evaluate(t) {
   const i = actionIndex(t);

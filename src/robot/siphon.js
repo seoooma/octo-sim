@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BELLY_Y, BELLY_R } from './body.js';
 import { hash, fract, smoothstep } from '../util.js';
+import { pulseAt } from '../sim/timeline.js';
 
 // 噴射口(サイフォン): 腹の後ろから下向きに出た 3 段の筒と、先の 6 枚のひれ。
 // 噴射すると泡(ジェットの航跡)を出す。泡も時刻だけで決まる(どの時刻へ飛んでも同じ)。
@@ -74,7 +75,7 @@ export function buildSiphon(m) {
     const jet = jetFn(t);
     const ext = Math.max(open, jet);
     sleeves.forEach((s, i) => (s.position.y = s.userData.home + ext * i * 0.09));
-    const pulse = jet * (0.5 + 0.5 * Math.sin(2 * Math.PI * 1.8 * t));
+    const pulse = jet * pulseAt(t);
     for (const f of flaps) f.rotation.x = 0.15 + 0.75 * open + 0.35 * pulse;
     const tipY = sleeves[SLEEVES - 1].position.y + 0.2;
     let n = 0;

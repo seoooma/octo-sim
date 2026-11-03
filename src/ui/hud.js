@@ -37,12 +37,12 @@ const TEMPLATE = `
   </header>
   <div class="plus-grid">${'<span>+</span>'.repeat(28)}</div>
   <div class="vtag left">MODEL BX-8 · REV 8</div>
-  <div class="vtag right" data-ref="isolate">ISOLATE · HERO</div>
+  <button class="vtag right" data-ref="isolate">ISOLATE · HERO</button>
   <div class="vbox"></div><div class="vbox br"></div>
 
   <section class="panel p-jet">
     <h2><span>JET</span><em>01</em></h2>
-    <div class="row"><div class="big"><b data-ref="pressure">20</b><small>KPA</small></div><div class="big right"><b data-ref="thrust">6</b><small>N</small></div></div>
+    <div class="row"><div class="big"><b data-ref="pressure">20</b><small>KPA</small></div><div class="big right"><b data-ref="thrust">6</b><small class="unit">N</small></div></div>
     <div class="row cap"><span>MANTLE PRESSURE</span><span>THRUST</span></div>
     <canvas data-ref="chart" width="516" height="184"></canvas>
     <div class="row foot"><span>PULSE <b data-ref="pulse">0.0 HZ</b></span><span data-ref="siphon">SIPHON IDLE</span></div>
@@ -79,17 +79,19 @@ const TEMPLATE = `
     <div class="row foot"><span>HOLD <b data-ref="hold">STATION</b></span><span>SPEED <b data-ref="speed">0.05 M/S</b></span></div>
   </section>
 
-  <section class="panel p-asm"><h2><span>ASSEMBLIES</span><em>05</em></h2><div class="btns" data-ref="asm"></div></section>
-  <section class="panel p-disp"><h2><span>DISPLAY</span><em>06</em></h2><div class="btns" data-ref="disp"></div></section>
+  <div class="dock" data-ref="dock">
+    <section class="panel interactive p-asm"><h2><span>ASSEMBLIES</span><em>05</em></h2><div class="btns" data-ref="asm"></div></section>
+    <section class="panel interactive p-disp"><h2><span>DISPLAY</span><em>06</em></h2><div class="btns" data-ref="disp"></div></section>
+  </div>
   <section class="panel p-sub"><h2><span>SUBSYSTEMS</span><em>07</em></h2><ol data-ref="subs"></ol></section>
 
   <div class="mode"><span>OPERATING MODE</span><b data-ref="mode">HOLDING</b><small data-ref="modeSub">STATION</small></div>
 
-  <section class="panel p-log">
+  <section class="panel interactive p-log" data-ref="log">
     <button class="play" data-ref="play" aria-label="play / pause">${PAUSE}</button>
     <div class="log-top"><span>OPERATION LOG</span><em>08</em></div>
     <div class="log-row"><span>DIVE</span><b data-ref="logText">INBOUND · JET ASSIST</b><span>SURFACE</span></div>
-    <div class="track" data-ref="track"><div class="fill" data-ref="fill"></div><div class="ticks" data-ref="ticks"></div><div class="knob" data-ref="knob"></div></div>
+    <div class="track" data-ref="track" role="slider" tabindex="0" aria-label="TIMELINE" aria-valuemin="0" aria-valuemax="${DURATION}" aria-valuenow="0"><div class="fill" data-ref="fill"></div><div class="ticks" data-ref="ticks"></div><div class="knob" data-ref="knob"></div></div>
     <div class="log-row small"><span data-ref="time">00:00 / 00:25</span><span>${ACTIONS.length} OPERATOR ACTIONS</span></div>
   </section>
 
@@ -100,7 +102,7 @@ const fmt = (v, d = 2) => (v >= 0 ? '+' : '') + v.toFixed(d);
 const mmss = (t) => `${pad2(t / 60)}:${pad2(t % 60)}`;
 
 export class Hud {
-  // handlers: onPlay(), onSeek(t), onAssembly(name), onDisplay(key)
+  // handlers: onPlay(), onSeek(t, done: 指を離したか), onAssembly(name), onDisplay(key), onResetView()
   constructor(root, handlers) {
     this.root = root;
     root.innerHTML = TEMPLATE;
@@ -124,36 +126,60 @@ export class Hud {
     r.asm.addEventListener('click', (e) => e.target.dataset.asm && handlers.onAssembly(e.target.dataset.asm));
     r.disp.addEventListener('click', (e) => e.target.dataset.disp && handlers.onDisplay(e.target.dataset.disp));
     r.play.addEventListener('click', () => handlers.onPlay());
-    const seek = (e) => {
+    r.isolate.addEventListener('click', () => handlers.onResetView());
+    // タイムライン: 押して、こすって、離す。離したとき(取り上げられたときも)に終わりを知らせる
+    let lastT = 0;
+    const at = (e) => {
       const box = r.track.getBoundingClientRect();
-      handlers.onSeek(Math.min(0.999, Math.max(0, (e.clientX - box.left) / box.width)) * DURATION);
+      return (lastT = Math.min(0.999, Math.max(0, (e.clientX - box.left) / box.width)) * DURATION);
+    };
+    const end = () => {
+      if (!r.track.onpointermove) return;
+      r.track.onpointermove = null;
+      handlers.onSeek(lastT, true);
     };
     r.track.addEventListener('pointerdown', (e) => {
-      seek(e);
+      handlers.onSeek(at(e), false);
       r.track.setPointerCapture(e.pointerId);
-      r.track.onpointermove = seek;
+      r.track.onpointermove = (ev) => handlers.onSeek(at(ev), false);
     });
-    r.track.addEventListener('pointerup', () => (r.track.onpointermove = null));
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) r.track.addEventListener(ev, end);
 
     this.ctx = r.chart.getContext('2d');
+    this.freeRect = null;
     this.layout();
     window.addEventListener('resize', () => this.layout());
+    requestAnimationFrame(() => this.layout());   // 文字の大きさが決まってから、空いている四角を測り直す
   }
 
-  // PC は 1600×900 を窓に合わせて縮める。狭い画面は並べ替え(compact)
+  // PC は 1600×900 を窓に合わせて縮める。狭い画面(縮めると文字が小さすぎる・指で操る端末で 0.75 倍未満)は並べ替え(compact)。
+  // あわせて、引き出し線の文字を置いてよい四角(パネルのない真ん中)を測っておく
   layout() {
     const w = window.innerWidth, h = window.innerHeight;
-    const compact = w < 1000 || h < 560;
+    const s = Math.min(w / DESIGN_W, h / DESIGN_H);
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const compact = w < 1000 || h < 560 || (coarse && s < 0.75);
+    const portrait = compact && h > w;
     this.root.classList.toggle('compact', compact);
-    this.root.classList.toggle('portrait', compact && h > w);
+    this.root.classList.toggle('portrait', portrait);
     const frame = this.root.firstElementChild;
-    if (compact) {
-      frame.style.transform = '';
-    } else {
-      const s = Math.min(w / DESIGN_W, h / DESIGN_H);
-      frame.style.transform = `translate(${(w - DESIGN_W * s) / 2}px, ${(h - DESIGN_H * s) / 2}px) scale(${s})`;
-    }
     this.compact = compact;
+    if (!compact) {
+      const ox = (w - DESIGN_W * s) / 2, oy = (h - DESIGN_H * s) / 2;
+      frame.style.transform = `translate(${ox}px, ${oy}px) scale(${s})`;
+      this.freeRect = { x0: ox + 330 * s, y0: oy + 100 * s, x1: ox + 1270 * s, y1: oy + 750 * s };
+      return;
+    }
+    frame.style.transform = '';
+    const r = this.ref;
+    const box = (el) => el.getBoundingClientRect();
+    const top = box(this.root.querySelector('.top')).bottom;
+    if (portrait) {
+      this.freeRect = { x0: 6, y0: Math.max(top, box(r.mode.parentElement).bottom) + 6, x1: w - 6, y1: box(r.dock).top - 6 };
+    } else {
+      const asm = box(r.asm.parentElement), disp = box(r.disp.parentElement);
+      this.freeRect = { x0: asm.right + 6, y0: top + 6, x1: disp.left - 6, y1: box(r.log).top - 6 };
+    }
   }
 
   set(key, el, value, prop = 'textContent') {
@@ -177,7 +203,9 @@ export class Hud {
     this.set('status', r.status, act.mode);
     const warn = /OPEN|APART|TEST/.test(act.mode);
     this.set('dot', r.dot, warn ? 'dot warn' : 'dot', 'className');
-    this.set('isolate', r.isolate, `ISOLATE · ${act.assembly}`);
+    // 手で回した視点のときは、押すと段取りのカメラに戻る札にする
+    this.set('isolate', r.isolate, ui.freeView ? 'FREE VIEW · RESET' : `ISOLATE · ${act.assembly}`);
+    this.set('isolateC', r.isolate, ui.freeView ? 'vtag right free' : 'vtag right', 'className');
 
     // JET
     this.set('pressure', r.pressure, Math.round(tm.pressure).toString());
@@ -238,6 +266,7 @@ export class Hud {
     this.set('fill', r.fill.style, pct, 'width');
     this.set('knob', r.knob.style, pct, 'left');
     this.set('time', r.time, `${mmss(s.t)} / ${mmss(DURATION)}`);
+    this.set('aria', r.track, s.t.toFixed(1), 'attr:aria-valuenow');
     this.set('play', r.play, ui.playing ? PAUSE : PLAY, 'innerHTML');
   }
 

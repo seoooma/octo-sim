@@ -1,15 +1,14 @@
 import * as THREE from 'three';
-import { jetAt, posAt, rotAt, DURATION } from './timeline.js';
-import { deg, clamp } from '../util.js';
+import { jetAt, posAt, rotAt, pulseAt, PULSE_HZ, DURATION } from './timeline.js';
+import { deg, clamp, smoothstep } from '../util.js';
 
 // 計器の数字。これも時刻 t と状態だけで決める(作りものの数字だが、動きとつじつまを合わせる)
-const PULSE_HZ = 1.8;
 const CURL_ORDER = ['R1', 'R2', 'R3', 'R4', 'L1', 'L2', 'L3', 'L4'];   // ARM CURL の並び
 
 // 外套の中の圧力(kPa)。噴射のときは 1.8Hz で脈打つ
 export function pressureAt(t) {
   const j = jetAt(t);
-  return 19 + 1.6 * Math.sin(t * 0.7) + j * (36 + 34 * Math.sin(2 * Math.PI * PULSE_HZ * t));
+  return 19 + 1.6 * Math.sin(t * 0.7) + j * (2 + 68 * pulseAt(t));
 }
 
 const up = new THREE.Vector3();
@@ -26,14 +25,14 @@ export function telemetry(s, arms) {
   const curls = arms.curls;
   const t = s.t;
   const j = s.jet;
-  const wave = 0.5 + 0.5 * Math.sin(2 * Math.PI * PULSE_HZ * t);
+  const wave = pulseAt(t);
   const p0 = posAt(t - 0.05);
   const p1 = posAt(t + 0.05);
   const speed = Math.hypot(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]) * 10 * 1.15 + 0.01 * (1 + Math.sin(t * 1.3));
   upAt(t, up);
   const tilt = deg(Math.acos(clamp(up.y, -1, 1)));
   // 泳いでいるとき(腕がなびく)は頭を前へ倒した向きなので負、腹を見せるときは正
-  const pitch = (s.pose.trail > 0.3 ? -tilt : tilt) + 0.6 * Math.sin(t * 0.9);
+  const pitch = (1 - 2 * smoothstep(0.2, 0.4, s.pose.trail)) * tilt + 0.6 * Math.sin(t * 0.9);   // 切り替わりで跳ばないように
   const roll = deg(s.rot[1]) * 0.35 + 0.4 * Math.sin(t * 0.6 + 1);
   const depth = 12.4 - s.pos[1] * 0.12 + 0.04 * Math.sin(t * 0.31);
   const vs = (p1[1] - p0[1]) * 10 * 0.12 + 0.05 * Math.cos(t * 0.31);

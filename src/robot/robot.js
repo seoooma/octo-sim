@@ -60,9 +60,10 @@ export class Robot {
     };
   }
 
-  // s: 台本の状態、d: 表示の切り替え(exploded / wake / spin / soft)、dt: 前のコマからの秒、
-  // reset: 腕のやわらかさを今の形に合わせ直す、camera: 目が追うカメラ、draw: 描く準備までするか(助走では腕の計算だけ)
-  update(s, d, dt = 0, reset = false, camera = null, draw = true) {
+  // s: 台本の状態、d: 表示の切り替え(exploded / wake / spin / soft)、
+  // dt: 前のコマからの秒(腕のやわらかさを進める。0 なら止める)、reset: 腕のやわらかさを今の形に合わせ直す、
+  // camera: 目が追うカメラ、draw: 描く準備までするか(助走では腕の計算だけ)
+  update(s, d, { dt = 0, reset = false, camera = null, draw = true } = {}) {
     const t = s.t;
     const ex = d.exploded;
     const hold = s.pose.hold;

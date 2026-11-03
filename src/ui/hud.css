@@ -2,12 +2,13 @@
    スマホなど狭い画面は .compact で並べ替える(パネルは隠し、上の帯・操作のボタン・タイムラインだけ)。 */
 :root {
   --ink: #1b1c1e;
-  --gray: #8b8780;
+  --gray: #6e6a64;
   --light: #c9c4bc;
   --line: #e2ded7;
   --panel: rgba(251, 250, 248, 0.88);
   --orange: #ef5b2b;
-  --green: #45a46e;
+  --green: #2a7f50;
+  --orange-text: #c9441a;   /* 小さなオレンジの文字(背景との差を大きく) */
   --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
@@ -44,6 +45,9 @@
 .plus-grid { position: absolute; left: 836px; top: 80px; width: 340px; display: grid; grid-template-columns: repeat(14, 1fr); row-gap: 8px; color: var(--orange); opacity: 0.55; font-size: 13px; text-align: center; }
 .vtag { position: absolute; top: 120px; font-size: 9px; letter-spacing: 0.22em; color: var(--gray); }
 .vtag.left { left: 345px; } .vtag.right { right: 345px; }
+button.vtag { background: none; border: 0; padding: 0; font: inherit; font-size: 9px; letter-spacing: 0.22em; color: var(--gray); }
+button.vtag.free { pointer-events: auto; cursor: pointer; color: var(--orange-text); font-weight: 700; }
+button.vtag.free::before { content: '⟲ '; }
 .vbox { position: absolute; left: 345px; top: 140px; width: 60px; height: 60px; border-left: 1px dashed var(--light); border-top: 1px dashed var(--light); }
 .vbox.br { left: auto; top: auto; right: 345px; bottom: 160px; border: 0; border-right: 1px dashed var(--light); border-bottom: 1px dashed var(--light); }
 
@@ -61,6 +65,7 @@
 
 .p-jet { left: 25px; top: 108px; width: 290px; height: 226px; }
 .p-jet .big.right b { font-size: 24px; }
+.p-jet .big.right small.unit { font-size: 24px; color: var(--ink); font-weight: 600; margin-left: 5px; }
 .p-jet canvas { width: 258px; height: 92px; display: block; margin: 8px 0 2px; }
 .p-power { left: 25px; top: 346px; width: 290px; height: 148px; }
 .cells { display: flex; gap: 3px; height: 20px; width: 150px; }
@@ -81,7 +86,7 @@
 .curls .bar i { display: block; height: 100%; background: var(--orange); border-radius: 3px; }
 .curls.trailing .bar i { background: var(--ink); }
 .curls .v { text-align: right; font-weight: 500; }
-.curls .v.det { color: var(--orange); font-size: 7.5px; letter-spacing: 0.1em; }
+.curls .v.det { color: var(--orange-text); font-size: 7.5px; letter-spacing: 0.1em; }
 
 .p-depth { left: 1285px; top: 108px; width: 290px; height: 196px; }
 .attitude { width: 92px; height: 92px; }
@@ -89,17 +94,21 @@
 .p-depth dt { color: var(--gray); }
 .p-depth dd { margin: 0; text-align: right; font-size: 11px; letter-spacing: 0.02em; font-weight: 500; }
 .p-depth .foot { margin-top: 16px; }
+.dock { display: contents; }
 .p-asm { left: 1285px; top: 316px; width: 290px; height: 111px; }
 .p-disp { left: 1285px; top: 439px; width: 290px; height: 111px; }
 .btns { display: flex; flex-wrap: wrap; gap: 6px 7px; }
 .btns button { font: 600 9.5px var(--mono); letter-spacing: 0.12em; padding: 6px 9px; background: #fff; border: 1px solid #dcd7cf; border-radius: 3px; color: var(--ink); cursor: pointer; }
 .btns button:hover { border-color: var(--orange); }
 .btns button.on { background: var(--orange); border-color: var(--orange); color: #fff; }
+.p-disp .btns button.on { background: #fff; color: var(--orange-text); box-shadow: inset 0 0 0 1px var(--orange); }
+.btns button, .p-log .play { touch-action: manipulation; }   /* 2 回たたいたときの拡大を防ぐ */
+.track { touch-action: none; }   /* こすっているあいだ、ブラウザに操作を取られないように */
 .p-sub { left: 1285px; top: 562px; width: 290px; height: 182px; }
 .p-sub ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .p-sub li { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; padding-left: 0; border-left: 2px solid transparent; }
 .p-sub li.hot { border-left-color: var(--orange); }
-.p-sub li.hot .n, .p-sub li.hot .nm { color: var(--orange); }
+.p-sub li.hot .n, .p-sub li.hot .nm { color: var(--orange-text); }
 .p-sub li .n { color: var(--gray); font-weight: 400; font-size: 8.5px; padding-left: 4px; }
 .p-sub li small { display: block; font-size: 7px; color: var(--gray); font-weight: 400; letter-spacing: 0.14em; margin-top: 1px; }
 
@@ -117,7 +126,7 @@
 .log-top span { border-left: 3px solid var(--orange); padding-left: 8px; }
 .log-top em { font-style: normal; color: var(--gray); font-weight: 400; font-size: 9px; }
 .log-row { display: flex; justify-content: space-between; font-size: 8.5px; letter-spacing: 0.2em; color: var(--gray); margin-top: 18px; }
-.log-row b { color: var(--orange); font-weight: 600; }
+.log-row b { color: var(--orange-text); font-weight: 600; }
 .log-row.small { margin-top: 10px; }
 .track { position: relative; height: 18px; cursor: pointer; margin-top: 2px; }
 .track::before { content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 2px; background: #e3dfd8; }
@@ -131,37 +140,55 @@ footer i { color: var(--orange); font-style: normal; letter-spacing: 0.05em; }
 /* 引き出し線(3D の部品から文字へ)。画面の座標で描く */
 #labels { position: fixed; inset: 0; pointer-events: none; font-family: var(--mono); }
 #labels svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-#labels .lb { position: absolute; font-size: 10px; letter-spacing: 0.16em; font-weight: 600; color: var(--ink); white-space: nowrap; transform: translateY(-50%); background: rgba(251, 250, 248, 0.78); padding: 3px 6px 3px 4px; border-radius: 2px; }
+#labels .lb { position: absolute; font-size: 10px; letter-spacing: 0.16em; font-weight: 600; color: var(--ink); white-space: nowrap; transform: translateY(-50%); background: rgba(251, 250, 248, 0.92); padding: 3px 6px 3px 4px; border-radius: 2px; }
 #labels .lb::before { content: ''; display: inline-block; width: 7px; height: 7px; background: var(--orange); margin-right: 7px; vertical-align: 0; }
 #labels .lb small { display: block; font-size: 7.5px; color: var(--gray); font-weight: 400; margin: 2px 0 0 14px; letter-spacing: 0.18em; }
 #labels .lb.left { transform: translate(-100%, -50%); }
+
+/* 指で操る端末: ボタンとタイムラインを押しやすく(見える線はそのまま、押せる高さを広げる) */
+@media (pointer: coarse) {
+  #hud .btns button { min-height: 40px; padding: 0 12px; }
+  #hud .track { height: 44px; margin: -12px 0 -12px; }
+  #hud .track::before, #hud .track .fill { top: 21px; }
+  #hud .track .ticks i { top: 16px; }
+  #hud .track .knob { top: 12px; width: 20px; height: 20px; margin-left: -11px; }
+}
 
 /* 狭い画面(スマホ): パネルは隠し、帯・ボタン・タイムラインを画面の端に沿わせる */
 #hud.compact .frame { width: 100%; height: 100%; transform: none !important; }
 #hud.compact .top { width: 100%; height: 52px; }
 #hud.compact .logo { width: 52px; height: 52px; padding: 0; justify-content: center; }
 #hud.compact .logo span, #hud.compact .kicker, #hud.compact .subtitle, #hud.compact .jetload,
-#hud.compact .stat.sim, #hud.compact .stat.op, #hud.compact .stat.run, #hud.compact .plus-grid,
-#hud.compact .vtag, #hud.compact .vbox, #hud.compact footer,
+#hud.compact .stat, #hud.compact .plus-grid, #hud.compact .vtag.left, #hud.compact .vbox, #hud.compact footer,
 #hud.compact .p-jet, #hud.compact .p-power, #hud.compact .p-curl, #hud.compact .p-depth, #hud.compact .p-sub { display: none; }
 #hud.compact .logo svg { width: 30px; height: 30px; }
 #hud.compact .title { left: 64px; top: 12px; }
 #hud.compact .title h1 { font-size: 22px; }
-#hud.compact .stat.status { left: auto; right: 12px; top: 10px; border: 0; text-align: right; }
-#hud.compact .p-asm, #hud.compact .p-disp { position: absolute; left: 10px; right: auto; width: auto; height: auto; top: auto; padding: 8px 10px; }
+#hud.compact .vtag.right { top: 60px; right: 12px; }
+/* 大きな文字は右上(STATUS と同じことを 2 回出さない) */
+#hud.compact .mode { left: auto; right: 12px; top: 8px; text-align: right; }
+#hud.compact .mode b { font-size: 18px; }
+#hud.compact .mode span { display: none; }
+#hud.compact .dock { position: absolute; display: flex; gap: 6px; pointer-events: none; }
+#hud.compact .dock .panel { position: static; width: auto; height: auto; padding: 6px; pointer-events: auto; }
 #hud.compact .p-asm h2, #hud.compact .p-disp h2 { display: none; }
-#hud.compact .p-asm { bottom: 128px; }
-#hud.compact .p-disp { bottom: 84px; }
-#hud.compact .btns button { padding: 6px 8px; font-size: 9px; }
-#hud.compact .mode { left: auto; right: 12px; top: auto; bottom: 92px; text-align: right; }
-#hud.compact .mode b { font-size: 20px; }
-#hud.compact .p-log { left: 10px; right: 10px; width: auto; top: auto; bottom: 10px; height: 70px; padding: 8px 14px 6px 66px; }
-#hud.compact .p-log .play { left: 12px; top: 13px; width: 42px; height: 42px; }
+#hud.compact .btns button { padding: 6px 9px; font-size: 9px; }
+#hud.compact .p-log { left: 8px; right: 8px; width: auto; top: auto; bottom: 8px; height: 64px; padding: 4px 12px 4px 62px; }
+#hud.compact .p-log .play { left: 10px; top: 11px; width: 42px; height: 42px; }
 #hud.compact .log-top { display: none; }
-#hud.compact .log-row { margin-top: 2px; }
+#hud.compact .log-row { margin-top: 6px; }
 #hud.compact .log-row span:first-child, #hud.compact .log-row span:last-child { display: none; }
-#hud.compact .log-row.small span { display: inline; }
 #hud.compact .log-row.small { margin-top: 2px; }
-#hud.compact.portrait .p-asm { bottom: 176px; right: 10px; }
-#hud.compact.portrait .p-disp { bottom: 132px; right: 10px; }
-#hud.compact.portrait .mode { right: auto; left: 12px; bottom: auto; top: 64px; text-align: left; }
+#hud.compact .log-row.small span { display: inline; }
+/* 横向き: 左に ASSEMBLIES、右に DISPLAY を縦 1 列(真ん中をロボットに空ける) */
+#hud.compact:not(.portrait) .dock { left: 8px; right: 8px; top: 84px; bottom: 80px; justify-content: space-between; align-items: flex-start; }
+#hud.compact:not(.portrait) .btns { flex-direction: column; flex-wrap: nowrap; gap: 4px; }
+#hud.compact:not(.portrait) .btns button { width: 100%; text-align: left; min-height: 30px; }
+/* 縦向き: 下に ASSEMBLIES(3 列×2 段)と DISPLAY(横に流せる 1 段) */
+#hud.compact.portrait .mode { right: auto; left: 12px; top: 60px; text-align: left; }
+#hud.compact.portrait .mode b { font-size: 20px; }
+#hud.compact.portrait .vtag.right { top: 70px; }
+#hud.compact.portrait .dock { left: 8px; right: 8px; bottom: 80px; flex-direction: column; }
+#hud.compact.portrait .p-asm .btns { display: grid; grid-template-columns: repeat(3, 1fr); }
+#hud.compact.portrait .p-disp .btns { flex-wrap: nowrap; overflow-x: auto; }
+#hud.compact.portrait .p-disp .btns button { flex: none; }

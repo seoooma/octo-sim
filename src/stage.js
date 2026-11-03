@@ -47,7 +47,7 @@ export function createStage(container, { preserve = false } = {}) {
   const key = new THREE.DirectionalLight(0xffffff, 2.8);
   key.position.set(-4, 9, 6);
   key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.mapSize.setScalar(touch ? 1024 : 2048);   // スマホは影の細かさを半分に
   Object.assign(key.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 30 });
   key.shadow.radius = 4;
   key.shadow.bias = -0.0004;
@@ -94,14 +94,17 @@ export function createStage(container, { preserve = false } = {}) {
   // 仕上げ: 隅の影(GTAO)→ 色の調子
   const size = new THREE.Vector2();
   renderer.getDrawingBufferSize(size);
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 }));
+  // スマホは軽く(MSAA と GTAO の標本を半分に)
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: touch ? 2 : 4 }));
   composer.addPass(new RenderPass(scene, camera));
   const gtao = new GTAOPass(scene, camera, size.x, size.y);
-  gtao.updateGtaoMaterial({ radius: 0.45, distanceExponent: 1.2, thickness: 0.8, scale: 1.6, samples: 16 });
-  gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+  gtao.updateGtaoMaterial({ radius: 0.45, distanceExponent: 1.2, thickness: 0.8, scale: 1.6, samples: touch ? 8 : 16 });
+  gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: touch ? 8 : 16 });
   gtao.blendIntensity = 1;
   composer.addPass(gtao);
   composer.addPass(new OutputPass());
+  // RT を渡すと composer は「描画バッファの幅 × 画素比」で各パスを作る(画素比の 2 乗になる)。窓の大きさで作り直す
+  composer.setSize(window.innerWidth, window.innerHeight);
 
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;

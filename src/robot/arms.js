@@ -25,9 +25,18 @@ const DRAG = 1.7;            // 水の抵抗(小さいほど揺れが長く残�
 const COUPLE = 40;           // となりの節とのつながり(ずれが付け根から先へ伝わる)
 const MAX_LAG = 1.0;         // 先のずれの上限
 
+// 作業用(毎コマ new しない)
 const v = new THREE.Vector3();
 const vt = new THREE.Vector3();
 const vn = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
+const tD = new THREE.Vector3();
+const tT = new THREE.Vector3();
+const tN = new THREE.Vector3();
+const tB = new THREE.Vector3();
+const tPos = new THREE.Vector3();
+const tTmp = new THREE.Vector3();
+const POSE_KEYS = ['hold', 'trail', 'star'];
 
 // 手探りのしぐさ: 腕ごとに 9 秒に 1 回くらい、2 秒ほどかけて伸びてほどけ、また巻く
 function reachAt(t, k) {
@@ -200,7 +209,8 @@ export class Arms {
     this.B = new Float32Array((STEPS + 1) * 3);
     this.len = L;
     this.curls = Object.fromEntries(ARM_NAMES.map((n) => [n, POSES.hold[n].curl]));
-    this.m = new THREE.Matrix4();
+    this.mtx = new THREE.Matrix4();
+    this.blendOut = { e: 0, bend: 0, side: 0, curl: 0 };
 
     // やわらかさの状態(腕ごと): 節の位置(世界)・1 つ前の位置・目標・ずれ
     const buf = () => new Float32Array(NODES * 3);
@@ -212,9 +222,11 @@ export class Arms {
   // 3 つの形を重みで混ぜた、腕 k の形
   blend(k, pose) {
     const n = ARM_NAMES[k];
-    const out = { e: 0, bend: 0, side: 0, curl: 0 };
-    for (const [key, w] of Object.entries(pose)) {
-      if (w <= 0) continue;
+    const out = this.blendOut;
+    out.e = out.bend = out.side = out.curl = 0;
+    for (const key of POSE_KEYS) {
+      const w = pose[key];
+      if (!(w > 0)) continue;
       const p = POSES[key][n];
       out.e += p.e * w;
       out.bend += p.bend * w;
@@ -230,14 +242,13 @@ export class Arms {
     const phase = k * 1.37;
     const mirror = ARM_NAMES[k][0] === 'R' ? -1 : 1;
     const e = p.e + 0.08 * Math.sin(0.7 * t + phase);
-    const D = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
-    const up = new THREE.Vector3(0, 1, 0);
-    const T = D.clone().multiplyScalar(Math.cos(e)).addScaledVector(up, Math.sin(e));
-    const N = D.clone().multiplyScalar(Math.sin(e)).addScaledVector(up, -Math.cos(e));
-    const B = new THREE.Vector3().crossVectors(T, N);
-    const pos = D.clone().multiplyScalar(ARM_BASE_R).setY(ARM_BASE_Y);
+    const D = tD.set(Math.sin(a), 0, Math.cos(a));
+    const T = tT.copy(D).multiplyScalar(Math.cos(e)).addScaledVector(UP, Math.sin(e));
+    const N = tN.copy(D).multiplyScalar(Math.sin(e)).addScaledVector(UP, -Math.cos(e));
+    const B = tB.crossVectors(T, N);
+    const pos = tPos.copy(D).multiplyScalar(ARM_BASE_R).setY(ARM_BASE_Y);
     const ds = len / STEPS;
-    const t2 = new THREE.Vector3();
+    const t2 = tTmp;
     for (let i = 0; i <= STEPS; i++) {
       pos.toArray(this.P, i * 3);
       T.toArray(this.T, i * 3);
@@ -277,7 +288,7 @@ export class Arms {
   // やわらかさ: 腕の節(NODES 個)を、世界の中でばねと水の抵抗で目標(刻んだカーブ)へ追わせる。
   // 目標からのずれを腕の座標へ戻して、刻んだカーブに足す。付け根は硬く先はやわらかいので、
   // 体が動いたり向きを変えたりすると、先ほど遅れてついてきて、少し行き過ぎて戻る。amount は効かせる量(0 で硬いまま)。
-  soften(k, world, dt, reset, amount) {
+  soften(k, world, dt, reset, amount, draw = true) {
     const S = this.sim[k];
     const len = this.len;
     for (let i = 0; i < NODES; i++) {
@@ -314,7 +325,7 @@ export class Arms {
       }
     }
     S.prev.set(S.tgt);
-    if (amount <= 0) return;
+    if (amount <= 0 || !draw) return;   // 助走では状態を進めるだけ(描かないので、ずれを足す必要はない)
     // ずれ(世界の向き)→ 腕の座標の向きへ。先ほど大きくてよい
     for (let i = 0; i < NODES; i++) {
       const j = i * 3;
@@ -379,7 +390,7 @@ export class Arms {
   // o: { apart: 台本でばらす量(R2 だけ), exploded: 分解図, jet: 噴射, pulse: 噴射の脈, soft: やわらかさ }
   // world: 腕の親(ロボット)の世界の行列、dt: 前のコマからの秒、reset: やわらかさを今の形に合わせ直す、draw: 置き場所を書くか(助走では書かない)
   update(t, poseFn, o, world, dt, reset = false, draw = true) {
-    const m = this.m;
+    const m = this.mtx;
     let li = 0, si = 0, pi = 0;
     this.inv.copy(world).invert();
     this.invRot.setFromMatrix4(this.inv);
@@ -400,7 +411,7 @@ export class Arms {
       this.curls[name] = p.curl;
       const stretch = 1 + APART_STRETCH * a;
       this.trace(k, t, p, L * stretch, (1 - 0.5 * pose.star) * (1 - a));
-      this.soften(k, world, dt, reset, o.soft ? 1 - 0.8 * a : 0);
+      this.soften(k, world, dt, reset, o.soft ? 1 - 0.8 * a : 0, draw);
       if (!draw) continue;
       // 輪の位置は付け根からの距離ごと伸ばす(すき間が開く)
       this.links.forEach((s0, i) => {
