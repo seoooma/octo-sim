@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ARM_COUNT, ARM_BASE_R, ARM_BASE_Y, armAngle } from './body.js';
-import { smoothstep, fract, hash } from '../util.js';
-import { pulseAt, strokeAt } from '../sim/timeline.js';
+import { smoothstep, fract, hash } from '../../util.js';
+import { pulseAt, strokeAt } from './timeline.js';
 
 // 腕 = 中心線のカーブに沿って、輪(白い筒+赤い車輪2つ)とばねを交互に並べたもの。
 // カーブは付け根から先へ「曲がり具合」を足していって作る(腹側へ曲げる bend、横へ曲げる side、先の巻き curl)。

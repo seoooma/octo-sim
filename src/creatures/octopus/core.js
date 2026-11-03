@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { mulberry32 } from '../util.js';
+import { mulberry32 } from '../../util.js';
 
 // 外套の中の機械(外套を開いたときだけ見える)。
 // 上: 黒い配線の束(ところどころオレンジの差し込み口)、中: 反応炉の輪、下: 7 本のピストン、横: 駆動の歯車。

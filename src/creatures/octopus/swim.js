@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { rotAt, poseAt, strokeAt, pulseAt, jetAt } from './timeline.js';
-import { smoothstep, smootherstep, clamp } from '../util.js';
+import { smoothstep, smootherstep, clamp } from '../../util.js';
 
 // 泳ぎ: ロボットの体の位置と向きを、時刻だけで決める(泡の跡や計器も同じ関数から作る)。
 // - 道は弧(3 次ベジェ)。頭(体の +y)は進む向きへ向き、目(+z)はなるべく手前へ

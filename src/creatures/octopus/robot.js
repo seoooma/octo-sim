@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { makeMaterials } from './materials.js';
+import { makeMaterials } from '../../materials.js';
 import { buildBody } from './body.js';
 import { buildCore } from './core.js';
 import { buildBeak } from './beak.js';
 import { buildSiphon } from './siphon.js';
 import { Arms } from './arms.js';
-import { jetAt, poseAt, pulseAt } from '../sim/timeline.js';
-import { bodyPoseAt } from '../sim/swim.js';
+import { jetAt, poseAt, pulseAt } from './timeline.js';
+import { bodyPoseAt } from './swim.js';
 
 const v = new THREE.Vector3();
 const qSpin = new THREE.Quaternion();
@@ -72,6 +72,11 @@ export class Robot {
         { title: 'JET WAKE', sub: '1.8 HZ PULSE', anchor: a.wake },
       ],
     };
+  }
+
+  // 引き出し線を外へ広げる中心(世界の座標)
+  center(out) {
+    return this.group.localToWorld(out.set(0, -0.2, 0));
   }
 
   // s: 台本の状態、d: 表示の切り替え(exploded / wake / spin / soft)、

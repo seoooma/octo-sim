@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BELLY_Y, BELLY_R } from './body.js';
-import { hash, fract, smoothstep } from '../util.js';
-import { pulseAt } from '../sim/timeline.js';
+import { hash, fract, smoothstep } from '../../util.js';
+import { pulseAt } from './timeline.js';
 
 // 噴射口(サイフォン): 腹の後ろから下向きに出た 3 段の筒と、先の 6 枚のひれ。
 // 噴射すると泡(ジェットの航跡)を出す。泡は生まれた場所(その時刻の体の位置)の水の中に残り、体と一緒には動かない。

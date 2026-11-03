@@ -1,19 +1,8 @@
 import * as THREE from 'three';
-import { ACTIONS } from '../sim/timeline.js';
-import { smoothstep, lerp } from '../util.js';
+import { smoothstep, lerp } from './util.js';
 
-// カメラの段取り: 操作ごとの構図(位置・注視点・画角)と、つなぎ。
-// follow はロボットの動きにどれだけ付いていくか(1 で完全に追う)。
-const SHOTS = {
-  inbound: { pos: [-0.8, 0.9, 13.2], target: [0.2, -0.5, 0], fov: 30, follow: 0.7 },   // 追いきらず、右下の手前から入ってくるのを見せる
-  hold: { pos: [0, 2.6, 12.4], target: [0, -0.45, 0], fov: 30, follow: 1 },
-  mantle: { pos: [0.9, 5.4, 8.8], target: [0, 0.1, 0], fov: 30, follow: 1 },
-  arm: { pos: [-3.6, 3.4, 15.0], target: [-2.4, 0.1, 0.9], fov: 30, follow: 1 },
-  optics: { pos: [2.7, 0.8, 8.0], target: [0.1, -0.25, 0.5], fov: 28, follow: 1 },
-  beak: { pos: [0.3, -4.6, 13.4], target: [0, -0.9, 0], fov: 30, follow: 1 },
-  siphon: { pos: [-8.0, -2.0, -6.4], target: [0, -1.0, -0.5], fov: 30, follow: 1 },
-  depart: { pos: [-0.8, 1.0, 9.2], target: [0.6, 0, 0], fov: 30, follow: 0.15 },   // ほとんど追わず、画面の外へ出ていく
-};
+// カメラの段取り: 操作ごとの構図(生き物ごとの shots: { 操作の key: { pos, target, fov, follow } })と、つなぎ。
+// follow は生き物の動きにどれだけ付いていくか(1 で完全に追う)。
 const BLEND = 1.6;       // 構図を切り替える時間(秒)
 const IDLE_BACK = 4;     // 手で回したあと、何秒で段取りに戻るか(再生中だけ。止めているあいだは戻さない)
 const NARROW_MAX = 1.8;  // 縦長の画面でカメラを遠ざける上限(腕の先は切れてよい)
@@ -42,9 +31,12 @@ function mixSpherical(out, a, b, u) {
 }
 
 export class Director {
-  constructor(camera, controls) {
+  // script: 台本(ACTIONS)、shots: 操作ごとの構図
+  constructor(camera, controls, script, shots) {
     this.camera = camera;
     this.controls = controls;
+    this.actions = script.ACTIONS;
+    this.shots = shots;
     this.manual = false;     // 指・マウスで動かしている最中
     this.free = false;       // 手で動かした視点を保っている
     this.moved = false;
@@ -87,8 +79,9 @@ export class Director {
       return;
     }
     this.free = false;
-    const cur = SHOTS[s.act.key];
-    const prev = SHOTS[ACTIONS[(s.index + ACTIONS.length - 1) % ACTIONS.length].key];
+    const A = this.actions;
+    const cur = this.shots[s.act.key];
+    const prev = this.shots[A[(s.index + A.length - 1) % A.length].key];
     const u = smoothstep(0, BLEND, s.since);
     place(prev, robot, posA, tgtA);
     place(cur, robot, posB, tgtB);

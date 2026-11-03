@@ -1,21 +1,28 @@
 import * as THREE from 'three';
 import GUI from 'three/addons/libs/lil-gui.module.min.js';
 import { createStage } from './stage.js';
-import { Robot } from './robot/robot.js';
-import { Director } from './camera/director.js';
-import { Hud, ASSEMBLIES } from './ui/hud.js';
+import { Director } from './director.js';
+import { Hud } from './ui/hud.js';
 import { Labels } from './ui/labels.js';
-import { evaluate, DURATION, ACTIONS, ASSEMBLY_JUMP, actionByKey, actionIndex } from './sim/timeline.js';
-import { telemetry } from './sim/telemetry.js';
+
+// 生き物の一覧(SPECIMEN の切り替え)。?creature=spider で選ぶ。ページを読み直して切り替える
+const SPECIES = [
+  { id: 'octopus', label: 'OCTOPUS', load: () => import('./creatures/octopus/index.js') },
+];
 
 // URL の指定:
+//   ?creature=octopus  生き物(SPECIES の id)
 //   ?t=10.5     その時刻で止めて 1 枚描く(静止画用。カメラは段取りどおり)
 //   ?play=0     止めた状態で始める        ?hud=0  計器を出さない
-//   ?ao=0       隅の影なし                ?labels=0 / ?wake=0 / ?exploded / ?turntable  表示の切り替え
-//   ?gui        調整のつまみ              ?soft=0 腕を硬いまま(やわらかさなし)   ?snow=0 水の中の粒なし
+//   ?ao=0       隅の影なし                ?labels=0 / ?exploded / ?turntable … 表示の切り替え(生き物の DISPLAY の key。=0 で消す)
+//   ?gui        調整のつまみ              ?snow=0 漂う粒なし
 //   ?step=5     1 コマずつ進める(tools/clip.mjs が動画を作るとき)
 // キーボード: スペースで再生/一時停止、← → で前後の操作、1〜6 で ASSEMBLIES
 const params = new URLSearchParams(location.search);
+const species = SPECIES.find((c) => c.id === params.get('creature')) ?? SPECIES[0];
+const creature = (await species.load()).default;
+const { script, evaluate, telemetry } = creature;
+const { ACTIONS, DURATION, actionByKey, actionIndex } = script;
 const fixedTime = params.has('t') ? parseFloat(params.get('t')) : null;
 const ui = {
   playing: fixedTime === null && params.get('play') !== '0',
@@ -23,20 +30,15 @@ const ui = {
   ao: params.get('ao') !== '0',
   scrub: false,      // タイムラインをこすっている最中
   needWarm: false,   // こすり終わった: 腕のやわらかさを助走し直す
-  display: {
-    labels: params.get('labels') !== '0',
-    exploded: params.has('exploded'),
-    wake: params.get('wake') !== '0',
-    turntable: params.has('turntable'),
-    soft: params.get('soft') !== '0',
-  },
+  // 表示の切り替え: 生き物の初めの値を、URL の ?key(=0 で消す)で変える
+  display: Object.fromEntries(Object.entries(creature.displayDefaults).map(([k, v]) => [k, params.has(k) ? params.get(k) !== '0' : v])),
 };
 const anim = { exploded: ui.display.exploded ? 1 : 0, spin: 0 };
 
-const stage = createStage(document.getElementById('app'), { preserve: fixedTime !== null, snow: params.get('snow') !== '0' });
-const robot = new Robot();
+const stage = createStage(document.getElementById('app'), { preserve: fixedTime !== null, snow: creature.env.snow && params.get('snow') !== '0' });
+const robot = creature.createModel();
 stage.scene.add(robot.group, robot.world);
-const director = new Director(stage.camera, stage.controls);
+const director = new Director(stage.camera, stage.controls, script, creature.shots);
 const labels = new Labels(document.getElementById('labels'));
 
 // 操作へ飛ぶ。再生中はその操作の始まり(つなぎから見せる)、止めているときは見どころの時刻へ。再生か一時停止かは変えない
@@ -45,13 +47,22 @@ function jumpTo(index) {
   ui.time = ui.playing ? a.t : a.peak;
   director.release();
 }
-const jumpToAssembly = (name) => jumpTo(actionByKey(ASSEMBLY_JUMP[name]));
+const jumpToAssembly = (name) => jumpTo(actionByKey(creature.assemblyJump[name]));
 const togglePlay = () => {
   ui.playing = !ui.playing;
   if (ui.playing) director.release();
 };
 
-const hud = params.get('hud') === '0' ? null : new Hud(document.getElementById('hud'), {
+const hudSpec = creature.makeHud();
+const ASSEMBLIES = hudSpec.assemblies;
+const hud = params.get('hud') === '0' ? null : new Hud(document.getElementById('hud'), hudSpec, script, SPECIES, species.id, {
+  onSpecies: (id) => {
+    if (id === species.id) return;
+    const q = new URLSearchParams(location.search);
+    q.set('creature', id);
+    q.delete('t');
+    location.search = q.toString();
+  },
   onPlay: togglePlay,
   onSeek: (t, done) => {
     ui.time = t;
@@ -91,7 +102,7 @@ const WARM_HZ = 20;    // 助走の刻み(1 秒に何回)
 const TAU = Math.PI * 2;
 let simTime = null;
 
-const displayState = () => ({ exploded: anim.exploded, wake: ui.display.wake, spin: anim.spin, soft: ui.display.soft });
+const displayState = () => ({ ...ui.display, exploded: anim.exploded, spin: anim.spin });
 
 // 腕のやわらかさは前のコマから積み上げるので、時刻が飛んだら少し前から走らせ直して今の揺れに合わせる。
 // 刻みは等分し、最後の 1 刻み(t まで)は呼んだ側が描くときに進める。その刻みの長さを返す
@@ -130,10 +141,9 @@ function frame(dt, immediate = false) {
   director.update(s, robot.group.position, dt, immediate, !ui.playing);
   stage.tick(ui.time);
   stage.render(ui.ao);
-  center.set(0, -0.2, 0);
-  robot.group.localToWorld(center);
+  robot.center(center);
   labels.update(stage.camera, ui.display.labels ? robot.labelSets[s.act.labels] : null, s.act.labels, s.labelFade, center, hud?.freeRect);
-  hud?.update(s, telemetry(s, robot.arms), { playing: ui.playing, display: ui.display, freeView: director.freeView });
+  hud?.update(s, telemetry(s, robot), { playing: ui.playing, display: ui.display, freeView: director.freeView });
 }
 
 if (params.has('step')) {

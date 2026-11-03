@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { hash, smootherstep } from '../util.js';
+import { hash, smootherstep } from '../../util.js';
 
 const Z = new THREE.Vector3(0, 0, 1);
 const UP = new THREE.Vector3(0, 1, 0);

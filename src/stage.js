@@ -5,7 +5,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { COLORS } from './robot/materials.js';
+import { COLORS } from './materials.js';
 import { hash } from './util.js';
 
 // 舞台: 描画の準備・光・床・背景の軌道の線・仕上げ(隅の影)

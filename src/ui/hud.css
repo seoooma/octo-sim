@@ -46,7 +46,13 @@
 
 .plus-grid { position: absolute; left: 836px; top: 80px; width: 340px; display: grid; grid-template-columns: repeat(14, 1fr); row-gap: 8px; color: var(--orange); opacity: 0.55; font-size: 13px; text-align: center; }
 .vtag { position: absolute; top: 120px; font-size: 9px; letter-spacing: 0.22em; color: var(--gray); }
-.vtag.left { left: 345px; } .vtag.right { right: 345px; }
+.vtag.right { right: 345px; }
+/* 生き物の切り替え(SPECIMEN) */
+.species { position: absolute; left: 345px; top: 113px; display: flex; align-items: center; gap: 4px; font-size: 9px; letter-spacing: 0.22em; color: var(--gray); pointer-events: auto; }
+.species > span { margin-right: 6px; }
+.species button { font: 600 9px var(--mono); letter-spacing: 0.14em; padding: 4px 8px; background: transparent; border: 1px solid #dcd7cf; border-radius: 3px; color: var(--gray); cursor: pointer; touch-action: manipulation; }
+.species button:hover { border-color: var(--orange); color: var(--ink); }
+.species button.on { background: var(--ink); border-color: var(--ink); color: #fff; }
 button.vtag { background: none; border: 0; padding: 0; font: inherit; font-size: 9px; letter-spacing: 0.22em; color: var(--gray); }
 button.vtag.free { pointer-events: auto; cursor: pointer; color: var(--orange-text); font-weight: 700; }
 button.vtag.free::before { content: '⟲ '; }
@@ -65,10 +71,10 @@ button.vtag.free::before { content: '⟲ '; }
 .foot { font-size: 9px; letter-spacing: 0.18em; color: var(--gray); border-top: 1px solid var(--line); padding-top: 8px; margin-top: 6px; }
 .foot b { color: var(--ink); font-weight: 600; letter-spacing: 0.05em; }
 
-.p-jet { left: 25px; top: 108px; width: 290px; height: 226px; }
-.p-jet .big.right b { font-size: 24px; }
-.p-jet .big.right small.unit { font-size: 24px; color: var(--ink); font-weight: 600; margin-left: 5px; }
-.p-jet canvas { width: 258px; height: 92px; display: block; margin: 8px 0 2px; }
+.p-a { left: 25px; top: 108px; width: 290px; height: 226px; }
+.w-chart .big.right b { font-size: 24px; }
+.w-chart .big.right small.unit { font-size: 24px; color: var(--ink); font-weight: 600; margin-left: 5px; }
+.w-chart canvas { width: 258px; height: 92px; display: block; margin: 8px 0 2px; }
 .p-power { left: 25px; top: 346px; width: 290px; height: 148px; }
 .cells { display: flex; gap: 3px; height: 20px; width: 150px; }
 .cells i { flex: 1; background: var(--green); border-radius: 1px; }
@@ -77,7 +83,7 @@ button.vtag.free::before { content: '⟲ '; }
 .three { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 9px; }
 .three div { font-size: 8.5px; letter-spacing: 0.2em; color: var(--gray); }
 .three b { display: block; margin-top: 6px; font-size: 13px; color: var(--ink); letter-spacing: 0.02em; font-weight: 500; }
-.p-curl { left: 25px; top: 506px; width: 290px; height: 238px; }
+.p-c { left: 25px; top: 506px; width: 290px; height: 238px; }
 .badge { font-style: normal; font-size: 7.5px; letter-spacing: 0.12em; color: #fff; background: var(--green); padding: 3px 6px; border-radius: 2px; white-space: nowrap; }
 .badge.orange { background: var(--orange); }
 .badge.gray { background: #ebe8e3; color: var(--gray); }
@@ -90,12 +96,12 @@ button.vtag.free::before { content: '⟲ '; }
 .curls .v { text-align: right; font-weight: 500; }
 .curls .v.det { color: var(--orange-text); font-size: 7.5px; letter-spacing: 0.1em; }
 
-.p-depth { left: 1285px; top: 108px; width: 290px; height: 196px; }
+.p-d { left: 1285px; top: 108px; width: 290px; height: 196px; }
 .attitude { width: 92px; height: 92px; }
-.p-depth dl { margin: 0; display: grid; grid-template-columns: auto auto; column-gap: 26px; row-gap: 10px; font-size: 8.5px; letter-spacing: 0.18em; }
-.p-depth dt { color: var(--gray); }
-.p-depth dd { margin: 0; text-align: right; font-size: 11px; letter-spacing: 0.02em; font-weight: 500; }
-.p-depth .foot { margin-top: 16px; }
+.w-att dl { margin: 0; display: grid; grid-template-columns: auto auto; column-gap: 26px; row-gap: 10px; font-size: 8.5px; letter-spacing: 0.18em; }
+.w-att dt { color: var(--gray); }
+.w-att dd { margin: 0; text-align: right; font-size: 11px; letter-spacing: 0.02em; font-weight: 500; }
+.w-att .foot { margin-top: 16px; }
 .dock { display: contents; }
 .p-asm { left: 1285px; top: 316px; width: 290px; height: 111px; }
 .p-disp { left: 1285px; top: 439px; width: 290px; height: 111px; }
@@ -161,12 +167,14 @@ footer i { color: var(--orange); font-style: normal; letter-spacing: 0.05em; }
 #hud.compact .top { width: 100%; height: 52px; }
 #hud.compact .logo { width: 52px; height: 52px; padding: 0; justify-content: center; }
 #hud.compact .logo span, #hud.compact .kicker, #hud.compact .subtitle, #hud.compact .jetload,
-#hud.compact .stat, #hud.compact .plus-grid, #hud.compact .vtag.left, #hud.compact .vbox, #hud.compact footer,
-#hud.compact .p-jet, #hud.compact .p-power, #hud.compact .p-curl, #hud.compact .p-depth, #hud.compact .p-sub { display: none; }
+#hud.compact .stat, #hud.compact .plus-grid, #hud.compact .vbox, #hud.compact footer,
+#hud.compact .p-a, #hud.compact .p-power, #hud.compact .p-c, #hud.compact .p-d, #hud.compact .p-sub { display: none; }
 #hud.compact .logo svg { width: 30px; height: 30px; }
 #hud.compact .title { left: 64px; top: 12px; }
 #hud.compact .title h1 { font-size: 22px; }
 #hud.compact .vtag.right { top: 60px; right: 12px; }
+#hud.compact .species { left: 8px; top: 58px; }
+#hud.compact .species > span { display: none; }
 /* 大きな文字は右上(STATUS と同じことを 2 回出さない) */
 #hud.compact .mode { left: auto; right: 12px; top: 8px; text-align: right; }
 #hud.compact .mode b { font-size: 18px; }
@@ -183,13 +191,14 @@ footer i { color: var(--orange); font-style: normal; letter-spacing: 0.05em; }
 #hud.compact .log-row.small { margin-top: 2px; }
 #hud.compact .log-row.small span { display: inline; }
 /* 横向き: 左に ASSEMBLIES、右に DISPLAY を縦 1 列(真ん中をロボットに空ける) */
-#hud.compact:not(.portrait) .dock { left: 8px; right: 8px; top: 84px; bottom: 80px; justify-content: space-between; align-items: flex-start; }
+#hud.compact:not(.portrait) .dock { left: 8px; right: 8px; top: 90px; bottom: 80px; justify-content: space-between; align-items: flex-start; }
 #hud.compact:not(.portrait) .btns { flex-direction: column; flex-wrap: nowrap; gap: 4px; }
 #hud.compact:not(.portrait) .btns button { width: 100%; text-align: left; min-height: 30px; }
 /* 縦向き: 下に ASSEMBLIES(3 列×2 段)と DISPLAY(横に流せる 1 段) */
 #hud.compact.portrait .mode { right: auto; left: 12px; top: 60px; text-align: left; }
 #hud.compact.portrait .mode b { font-size: 20px; }
-#hud.compact.portrait .vtag.right { top: 70px; }
+#hud.compact.portrait .vtag.right { top: 92px; }
+#hud.compact.portrait .species { left: auto; right: 8px; top: 60px; }
 #hud.compact.portrait .dock { left: 8px; right: 8px; bottom: 80px; flex-direction: column; }
 #hud.compact.portrait .p-asm .btns { display: grid; grid-template-columns: repeat(3, 1fr); }
 #hud.compact.portrait .p-disp .btns { flex-wrap: nowrap; overflow-x: auto; }

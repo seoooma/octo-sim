@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { jetAt, pulseAt, PULSE_HZ, DURATION } from './timeline.js';
 import { bodyPoseAt, swimSpeedAt } from './swim.js';
-import { deg, clamp, smoothstep } from '../util.js';
+import { deg, clamp, smoothstep } from '../../util.js';
 
 // 計器の数字。これも時刻 t と状態だけで決める(作りものの数字だが、動きとつじつまを合わせる)
 const CURL_ORDER = ['R1', 'R2', 'R3', 'R4', 'L1', 'L2', 'L3', 'L4'];   // ARM CURL の並び
@@ -17,7 +17,8 @@ const pos = new THREE.Vector3();
 const quat = new THREE.Quaternion();
 
 // arms: 腕(曲がり具合と、輪・車輪の数)
-export function telemetry(s, arms) {
+export function telemetry(s, robot) {
+  const arms = robot.arms;
   const curls = arms.curls;
   const t = s.t;
   const j = s.jet;
@@ -37,7 +38,7 @@ export function telemetry(s, arms) {
   return {
     pressure: pressureAt(t),
     thrust: 6 + j * (62 + 48 * wave),
-    jetLoad: clamp(0.12 + j * (0.4 + 0.08 * wave) + s.siphonOpen * 0.02, 0, 1),
+    load: clamp(0.12 + j * (0.4 + 0.08 * wave) + s.siphonOpen * 0.02, 0, 1),
     pulseHz: j > 0.05 ? PULSE_HZ : 0,
     siphon: j > 0.05 ? 'FIRING' : 'IDLE',
     battery: 87 - (t / DURATION) * 5,
