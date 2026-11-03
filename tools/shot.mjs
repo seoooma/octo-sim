@@ -6,6 +6,7 @@ import { createServer } from 'vite';
 import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { acquireBrowserLock } from './lib/lock.mjs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const W = Number(process.env.SHOT_W ?? 1600);
@@ -17,6 +18,7 @@ if (args.length === 0 || args.length % 2) {
   process.exit(1);
 }
 
+await acquireBrowserLock();   // ブラウザの道具は同時に 1 つだけ
 const server = process.env.SHOT_BASE ? null : await createServer({ server: { port: 5199 }, logLevel: 'error' });
 await server?.listen();
 const base = process.env.SHOT_BASE ?? server.resolvedUrls.local[0];

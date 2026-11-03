@@ -1,18 +1,12 @@
 import * as THREE from 'three';
-import { smoothstep, smootherstep, clamp } from '../../util.js';
+import { smoothstep, smootherstep } from '../../util.js';
+import { makePath, makeProgress, bezierPoints, densify, headingOn, wrapAngle as wrap, makeGait, makeWalker, FLOOR, verticalPlane } from '../../core/walk.js';
 import { WEB, SPIRAL, RADIAL_COUNT, radialAngle, FLOOR_Y, RIDE, RIDE_W, STOP, LEGS } from './layout.js';
 
-// 蜘蛛の体の道と、足の運び。どれも時刻 t だけで決まる(どの時刻へ飛んでも同じ絵)。
-// 面(床 floor・巣 web)の上を「進む位置 + 向き」で動き、足は進んだ量(歩数の元)で決める:
-//   歩数の元 g = 進んだ道のり + 向きを変えた角度 × 腕の長さ(その場で回るときも足を運ぶ)
-//   脚 i の歩みの位相 φ = g / 歩幅 + ずらし。φ の前半は足を面に置き(立脚)、後半で次の場所へ運ぶ(遊脚)
-//   足を置く場所は「その立脚の真ん中の時刻に、体がいる場所での、ふだんの足の位置」(体が進むと足は後ろへ流れる)
+// 蜘蛛の体の道と、足の運び。どれも時刻 t だけで決まる。足の運びの仕組みは core/walk.js。
+// 面は床(floor)と巣(web、縦の面)。そのあいだは引き糸にぶら下がる(air)
 
 export const STRIDE = { floor: 0.75, web: 1.25 };
-const DUTY = 0.6;        // 足を置いている割合
-const LIFT = 0.2;        // 足を上げる高さ
-const TURN_ARM = 1.2;    // 向きを変えたとき、何歩ぶんに数えるか(角度 × この長さ)
-const HZ = 120;          // 表の細かさ
 
 // 時刻の区切り
 export const T = {
@@ -23,48 +17,8 @@ export const T = {
   home1: 30.4, settle1: 31.2, end: 32,
 };
 
-// ---- 道(折れ線を細かく刻み、道のりで引けるようにする)
-function makePath(points) {
-  const len = [0];
-  for (let i = 1; i < points.length; i++) len.push(len[i - 1] + Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]));
-  const total = len[len.length - 1];
-  const at = (s, out) => {
-    s = clamp(s, 0, total);
-    let lo = 0, hi = len.length - 1;
-    while (hi - lo > 1) {
-      const mid = (lo + hi) >> 1;
-      if (len[mid] <= s) lo = mid;
-      else hi = mid;
-    }
-    const w = (s - len[lo]) / Math.max(1e-9, len[hi] - len[lo]);
-    out[0] = points[lo][0] + (points[hi][0] - points[lo][0]) * w;
-    out[1] = points[lo][1] + (points[hi][1] - points[lo][1]) * w;
-    return out;
-  };
-  return { at, total };
-}
-
-// 速さの形 speed(t) を足し合わせ、[t0, t1] で 0 → 1 に進む表にする
-function makeProgress(t0, t1, speed) {
-  const n = Math.ceil((t1 - t0) * HZ);
-  const tab = new Float32Array(n + 1);
-  let acc = 0;
-  for (let i = 1; i <= n; i++) tab[i] = acc += speed(t0 + (i - 0.5) / HZ) / HZ;
-  for (let i = 0; i <= n; i++) tab[i] /= acc;
-  return (t) => {
-    const f = clamp((t - t0) * HZ, 0, n);
-    const i = Math.min(n - 1, Math.floor(f));
-    return tab[i] + (tab[i + 1] - tab[i]) * (f - i);
-  };
-}
-
-function bezier2(p, u) {
-  const a = (1 - u) ** 3, b = 3 * (1 - u) ** 2 * u, c = 3 * (1 - u) * u * u, d = u ** 3;
-  return [a * p[0][0] + b * p[1][0] + c * p[2][0] + d * p[3][0], a * p[0][1] + b * p[1][1] + c * p[2][1] + d * p[3][1]];
-}
-
 // 床を歩く道(右の奥から、輪の手前へ。床の (x, z))
-const WALK = makePath(Array.from({ length: 121 }, (_, i) => bezier2([[7.6, 3.4], [4.6, 3.3], [1.8, STOP.z], [STOP.x, STOP.z]], i / 120)));
+const WALK = makePath(bezierPoints([[7.6, 3.4], [4.6, 3.3], [1.8, STOP.z], [STOP.x, STOP.z]]));
 const walkProgress = makeProgress(0, T.walkEnd, (t) => (1 - smootherstep(2.4, T.walkEnd, t)) ** 0.7 + 0.02);
 
 // 巣の横糸(多角形の頂点は縦糸の上)。巣の面の (x, y)
@@ -83,22 +37,7 @@ const homeProgress = makeProgress(T.turnHome1, T.home1, (t) => smoothstep(T.turn
 // 渦巻きの何本目の頂点まで張ったか(道のり → 頂点)
 export const SPIRAL_START_S = Math.hypot(SPIRAL_PTS[0][0] - WEB.cx, SPIRAL_PTS[0][1] - WEB.cy);
 
-function densify(pts, k) {
-  const out = [];
-  for (let i = 0; i < pts.length - 1; i++) {
-    for (let j = 0; j < k; j++) out.push([pts[i][0] + ((pts[i + 1][0] - pts[i][0]) * j) / k, pts[i][1] + ((pts[i + 1][1] - pts[i][1]) * j) / k]);
-  }
-  out.push(pts[pts.length - 1]);
-  return out;
-}
-
-// 向き: 道の前後 ±0.25 の差から(角が急に折れない)
-const tmp = [0, 0], tmp2 = [0, 0];
-function headingOn(path, s) {
-  path.at(s + 0.25, tmp);
-  path.at(s - 0.25, tmp2);
-  return [tmp[0] - tmp2[0], tmp[1] - tmp2[1]];
-}
+const tmp = [0, 0];
 
 // ---- 面の上の「進む位置と向き」。surface: 'floor' | 'air' | 'web'
 // floor: p = (x, z)、heading = 前の向き (dx, dz)。web: p = 巣の面の (x, y)、heading = (dx, dy)
@@ -157,125 +96,21 @@ export function travelAt(t, out = {}) {
   return out;
 }
 export const SPIRAL_TOTAL = SPIRAL_WALK.total;
-function wrap(a) {
-  while (a > Math.PI) a -= 2 * Math.PI;
-  while (a < -Math.PI) a += 2 * Math.PI;
-  return a;
-}
 const WALK_END_YAW = (() => { const h = headingOn(WALK, WALK.total - 0.3); return Math.atan2(h[0], h[1]); })();
 const SPIRAL_END_YAW = (() => { const h = headingOn(SPIRAL_WALK, SPIRAL_WALK.total - 0.3); return Math.atan2(h[1], h[0]); })();
 const HOME_YAW = Math.atan2(WEB.cy - SPIRAL_END[1], WEB.cx - SPIRAL_END[0]);
 export const spiralPointAt = (s, out) => SPIRAL_WALK.at(s, out);
 
-// ---- 歩数の元 g(t): 床と巣で別の表
-function makeGait(t0, t1) {
-  const n = Math.ceil((t1 - t0) * HZ);
-  const tab = new Float32Array(n + 1);
-  const a = {}, b = {};
-  travelAt(t0, a);
-  for (let i = 1; i <= n; i++) {
-    travelAt(Math.min(t1 - 1e-6, t0 + i / HZ), b);
-    let dy = b.yaw - a.yaw;
-    while (dy > Math.PI) dy -= 2 * Math.PI;
-    while (dy < -Math.PI) dy += 2 * Math.PI;
-    tab[i] = tab[i - 1] + Math.hypot(Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1]), dy * TURN_ARM);
-    a.p = b.p; a.yaw = b.yaw;
-  }
-  const gAt = (t) => {
-    const f = clamp((t - t0) * HZ, 0, n);
-    const i = Math.min(n - 1, Math.floor(f));
-    return tab[i] + (tab[i + 1] - tab[i]) * (f - i);
-  };
-  // g → その g に初めて着いた時刻
-  const tAt = (g) => {
-    if (g <= 0) return t0;
-    if (g >= tab[n]) return t1 - 1e-6;
-    let lo = 0, hi = n;
-    while (hi - lo > 1) {
-      const mid = (lo + hi) >> 1;
-      if (tab[mid] < g) lo = mid;
-      else hi = mid;
-    }
-    const w = (g - tab[lo]) / Math.max(1e-9, tab[hi] - tab[lo]);
-    return t0 + (lo + w) / HZ;
-  };
-  return { gAt, tAt, t0, t1, total: tab[n] };
-}
-export const GAIT = { floor: makeGait(0, T.air0), web: makeGait(T.air1, T.end) };
-
-// 面の座標 → 世界。floor: (x, z) は y = 床、web: (x, y) は z = 巣の面
-export function surfaceToWorld(surface, u, v, out) {
-  return surface === 'floor' ? out.set(u, FLOOR_Y, v) : out.set(u, v, WEB.z);
-}
-// 面の上の向き (前・上・横) を作る。体の座標: 頭 +z、背中 +y、左 +x
-export function surfaceBasis(surface, yaw, fwd, up, side) {
-  if (surface === 'floor') {
-    fwd.set(Math.sin(yaw), 0, Math.cos(yaw));
-    up.set(0, 1, 0);
-  } else {
-    fwd.set(Math.cos(yaw), Math.sin(yaw), 0);
-    up.set(0, 0, 1);
-  }
-  side.crossVectors(up, fwd);
-}
-
-// ---- 足の位置(脚 i、時刻 t)。面の上の世界の座標と、上げている量(0〜1)を返す
-const fv = new THREE.Vector3(), uv = new THREE.Vector3(), sv = new THREE.Vector3();
-const pa = new THREE.Vector3(), pb = new THREE.Vector3();
-const tr = {};
-
-// 脚 i のふだんの足の位置(その時刻の体の場所で)
-function restFoot(surface, i, t, out) {
-  travelAt(t, tr);
-  surfaceBasis(surface, tr.yaw, fv, uv, sv);
-  const [rx, rz] = LEGS[i].rest;
-  surfaceToWorld(surface, tr.p[0], tr.p[1], out);
-  return out.addScaledVector(sv, rx).addScaledVector(fv, rz);
-}
-
-// 歩いている強さ(0〜1)。止まると、運んでいる途中の足もそこで下ろす
-export function activityAt(surface, t) {
-  const G = GAIT[surface];
-  return smoothstep(0.05, 0.5, (G.gAt(t + 0.15) - G.gAt(t - 0.15)) / 0.3 / STRIDE[surface]);
-}
-
-export function legPhase(surface, i, t) {
-  const G = GAIT[surface];
-  const D = STRIDE[surface];
-  const c = G.gAt(t) / D + LEGS[i].offset;
-  const n = Math.floor(c);
-  return { c, n, phi: c - n, stance: c - n < DUTY || activityAt(surface, t) < 0.15 };
-}
-
-export function footAt(surface, i, t, out) {
-  const G = GAIT[surface];
-  const D = STRIDE[surface];
-  const { n, phi } = legPhase(surface, i, t);
-  const off = LEGS[i].offset;
-  const plant = (k, o) => restFoot(surface, i, G.tAt((k + DUTY / 2 - off) * D), o);
-  if (phi < DUTY) {
-    plant(n, out);
-    return 0;
-  }
-  const u = smootherstep(DUTY, 1, phi);
-  plant(n, pa);
-  plant(n + 1, pb);
-  out.copy(pa).lerp(pb, u);
-  const lift = Math.sin(Math.PI * u) * activityAt(surface, t);
-  travelAt(t, tr);
-  surfaceBasis(surface, tr.yaw, fv, uv, sv);
-  out.addScaledVector(uv, LIFT * lift);
-  return lift;
-}
+// ---- 歩数の元 g(t)(床と巣で別の表)と、足の運び(core/walk.js)
+export const GAIT = { floor: makeGait(travelAt, 0, T.air0), web: makeGait(travelAt, T.air1, T.end) };
+const SURFACES = { floor: FLOOR, web: verticalPlane(WEB.z) };
+const WALKER = makeWalker({ travelAt, surfaces: SURFACES, gaits: GAIT, stride: STRIDE, legs: LEGS });
+export const { activityAt, legPhase, footAt } = WALKER;
 
 // ---- 体の位置と向き(体の座標 → 世界)。上下の揺れ・登るときの振り子を含む
 const qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
-const mBasis = new THREE.Matrix4();
 const bp = new THREE.Vector3();
-function surfaceQuat(surface, yaw, q) {
-  surfaceBasis(surface, yaw, fv, uv, sv);
-  return q.setFromRotationMatrix(mBasis.makeBasis(sv, uv, fv));
-}
+const tr = {};
 const CLIMB_FROM = new THREE.Vector3(STOP.x, FLOOR_Y + RIDE, STOP.z);
 const CLIMB_TO = new THREE.Vector3(WEB.cx, WEB.cy, WEB.z + RIDE_W);
 
@@ -287,19 +122,12 @@ export function bodyPoseAt(t, outPos, outQuat) {
     outPos.copy(CLIMB_FROM).lerp(CLIMB_TO, u);
     outPos.z += 0.9 * Math.sin(Math.PI * u) * 0.6;
     outPos.x += 0.12 * Math.sin(3.1 * t) * Math.sin(Math.PI * u);
-    surfaceQuat('floor', 0, qa);
-    surfaceQuat('web', -Math.PI / 2, qb);
+    WALKER.surfaceQuat('floor', 0, qa);
+    WALKER.surfaceQuat('web', -Math.PI / 2, qb);
     outQuat.slerpQuaternions(qa, qb, smootherstep(T.air0 + 0.2, T.air1 - 0.3, t));
     return 'air';
   }
-  const surface = tr.surface;
-  surfaceToWorld(surface, tr.p[0], tr.p[1], outPos);
-  surfaceBasis(surface, tr.yaw, fv, uv, sv);
-  // 歩くと体が少し上下する(1 歩に 2 回)
-  const g = GAIT[surface].gAt(t) / STRIDE[surface];
-  outPos.addScaledVector(uv, (surface === 'floor' ? RIDE : RIDE_W) + 0.018 * Math.sin(4 * Math.PI * g) + 0.01 * Math.sin(1.3 * t));
-  surfaceQuat(surface, tr.yaw, outQuat);
-  return surface;
+  return WALKER.bodyOnSurface(t, tr.surface === 'floor' ? RIDE : RIDE_W, outPos, outQuat);
 }
 
 // 空中(登るあいだ)の重み: 足を体に引き寄せる量

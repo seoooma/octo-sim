@@ -1,9 +1,11 @@
 // 動かしたときの速さ(コマ/秒)とエラーを見る。 node tools/fps.mjs ['クエリ'] [秒]
 import { createServer } from 'vite';
 import { chromium } from 'playwright-core';
+import { acquireBrowserLock } from './lib/lock.mjs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const [query = '', seconds = '5'] = process.argv.slice(2);
+await acquireBrowserLock();   // ブラウザの道具は同時に 1 つだけ
 const server = await createServer({ server: { port: 5198 }, logLevel: 'error' });
 await server.listen();
 const browser = await chromium.launch({ executablePath: CHROME, args: ['--use-angle=metal', '--ignore-gpu-blocklist'] });

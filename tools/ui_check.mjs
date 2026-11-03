@@ -2,9 +2,11 @@
 //   node tools/ui_check.mjs [out.png]
 import { createServer } from 'vite';
 import { chromium } from 'playwright-core';
+import { acquireBrowserLock } from './lib/lock.mjs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const out = process.argv[2] ?? 'out/ui_check.png';
+await acquireBrowserLock();   // ブラウザの道具は同時に 1 つだけ
 const server = await createServer({ server: { port: 5197 }, logLevel: 'error' });
 await server.listen();
 const browser = await chromium.launch({ executablePath: CHROME, args: ['--use-angle=metal', '--ignore-gpu-blocklist'] });

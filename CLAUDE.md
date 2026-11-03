@@ -31,6 +31,11 @@
 - 名前は自分たちのもの(Benthos BX-8 / AX-8、BENTHOS ROBOTICS)。見本の Pelagos OC-8 は使わない
 - 見た目は見本に合わせた(2026-11-03 のレビューで画素を測って): 白い殻・暗い金属・オレンジは控えめ・背景は暖かい白
 
+## 脚で歩く・脚の形の共通の道具(2026-11-04)
+- `src/core/walk.js`: 道(makePath・makeProgress・bezierPoints・headingOn)、歩数の元の表(makeGait)、面(FLOOR・verticalPlane)、足の運び(makeWalker: legPhase・footAt・activityAt・bodyOnSurface)
+- `src/core/limbs.js`: 楕円体の殻の板(plates)・リベット・目・脚の節(segment)・2 本の骨の IK(solve2)・節を置く(place)・3 節の脚(buildLeg・poseLeg)
+- 蜘蛛は両方を使う。サソリ・カニも使う
+
 ## 新しい生き物を足す
 1. `src/creatures/<名前>/` に index.js(上の決めごと)と、台本・モデル・計器・構図を作る。蜘蛛を見本にする(脚で歩く物は path.js の歩き方を、腕がなびく物はタコの arms.js を使い回す)
 2. `main.js` の `SPECIES` に 1 行足す(`?creature=<名前>` と SPECIMEN のボタンになる)
@@ -66,6 +71,7 @@
 3. **履歴の書き換え・force-push は、その都度ユーザーの許可を取る。**
 4. 作業は `main` へ(ブランチ・PR は使っていない)。コミットは意味のある単位で。
 5. **完了と言う前に、静止画を撮って自分で見る**(`tools/shot.mjs`)。`tools/fps.mjs` でエラー・警告が出ないことも見る。
+6. ブラウザを使う道具(shot・clip・fps・ui_check)は `/tmp/octo-sim-browser.lock` を順番に取る(いくつかの作業を並べても、Chrome は同時に 1 つ)。
 
 ## 落とし穴(作った人が見つけたこと)
 - `PCFSoftShadowMap` は削除済み(警告が出て PCF になる)。`PCFShadowMap` と `shadow.radius` を使う。`THREE.Clock` は非推奨で、`THREE.Timer` を使う。

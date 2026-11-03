@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { acquireBrowserLock } from './lib/lock.mjs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const [out, start = '0', secs = '4', extra = '', fpsArg = '30'] = process.argv.slice(2);
@@ -18,6 +19,7 @@ const fps = Number(fpsArg);
 const W = Number(process.env.CLIP_W ?? 960), H = Number(process.env.CLIP_H ?? 540);
 const frames = Math.round(Number(secs) * fps);
 const dir = mkdtempSync(join(tmpdir(), 'octo-clip-'));
+await acquireBrowserLock();   // ブラウザの道具は同時に 1 つだけ
 const server = await createServer({ server: { port: 5196 }, logLevel: 'error' });
 await server.listen();
 const browser = await chromium.launch({ executablePath: CHROME, args: ['--use-angle=metal', '--ignore-gpu-blocklist'] });
