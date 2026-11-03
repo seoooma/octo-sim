@@ -6,6 +6,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { COLORS } from './robot/materials.js';
+import { hash } from './util.js';
 
 // 舞台: 描画の準備・光・床・背景の軌道の線・仕上げ(隅の影)
 export const FLOOR_Y = -2.2;
@@ -19,7 +20,7 @@ function circle(r, segments = 128) {
   return new THREE.BufferGeometry().setFromPoints(pts);
 }
 
-export function createStage(container, { preserve = false } = {}) {
+export function createStage(container, { preserve = false, snow = true } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: preserve });
   const touch = window.matchMedia('(pointer: coarse)').matches;   // スマホ・タブレット
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, touch ? 1.5 : 2));
@@ -92,6 +93,30 @@ export function createStage(container, { preserve = false } = {}) {
   }
   scene.add(orbits);
 
+  // 水の中の細かな粒(マリンスノー)。ゆっくり漂うだけで動かないので、ロボットが泳ぐと粒が後ろへ流れて見える
+  const SNOW = 420;
+  const snowMesh = new THREE.InstancedMesh(
+    new THREE.IcosahedronGeometry(1, 0),
+    new THREE.MeshBasicMaterial({ color: 0x8e8a84, transparent: true, opacity: 0.5, depthWrite: false }),
+    SNOW,
+  );
+  snowMesh.frustumCulled = false;
+  snowMesh.visible = snow;
+  const snowBase = Array.from({ length: SNOW }, (_, i) => [
+    -10 + 24 * hash(i * 1.7), FLOOR_Y + 0.3 + 9 * hash(i * 2.3 + 5), -9 + 16 * hash(i * 3.1 + 9), 0.012 + 0.022 * hash(i * 4.9 + 2),
+  ]);
+  const sm = new THREE.Matrix4();
+  // t: 台本の時刻(粒の漂いも時刻だけで決める)
+  function tick(t) {
+    if (!snowMesh.visible) return;
+    snowBase.forEach(([x, y, z, r], i) => {
+      sm.makeScale(r, r, r).setPosition(x + 0.25 * Math.sin(0.11 * t + i), y + 0.15 * Math.sin(0.07 * t + i * 1.3) + 0.03 * t, z + 0.2 * Math.sin(0.09 * t + i * 0.7));
+      snowMesh.setMatrixAt(i, sm);
+    });
+    snowMesh.instanceMatrix.needsUpdate = true;
+  }
+  scene.add(snowMesh);
+
   // 仕上げ: 隅の影(GTAO)→ 色の調子
   const size = new THREE.Vector2();
   renderer.getDrawingBufferSize(size);
@@ -119,5 +144,5 @@ export function createStage(container, { preserve = false } = {}) {
     else renderer.render(scene, camera);
   }
 
-  return { renderer, scene, camera, controls, orbits, render };
+  return { renderer, scene, camera, controls, orbits, render, tick };
 }

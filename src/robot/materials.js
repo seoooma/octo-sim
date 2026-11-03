@@ -33,6 +33,7 @@ export function makeMaterials() {
     irisBlade: new THREE.MeshStandardMaterial({ color: 0x3a3c40, roughness: 0.3, metalness: 0.7, side: THREE.DoubleSide }),
     // 暗く深いレンズ(白い輪が大きく映らないように)
     glass: new THREE.MeshPhysicalMaterial({ color: COLORS.glass, roughness: 0.25, clearcoat: 0.4, clearcoatRoughness: 0.1, envMapIntensity: 0.35 }),
-    bubble: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15, transparent: true, opacity: 0.55, depthWrite: false }),
+    // 泡: 暖かい白の背景に溶けないよう、少し青みのある灰色
+    bubble: new THREE.MeshStandardMaterial({ color: 0xb8c6cf, roughness: 0.15, transparent: true, opacity: 0.7, depthWrite: false }),
   };
 }

@@ -227,7 +227,7 @@ export class Arms {
     this.len = L;
     this.curls = Object.fromEntries(ARM_NAMES.map((n) => [n, POSES.hold[n].curl]));
     this.mtx = new THREE.Matrix4();
-    this.blendOut = { e: 0, bend: 0, side: 0, curl: 0, reach: 0, jetWave: 0 };
+    this.blendOut = { e: 0, bend: 0, side: 0, curl: 0, reach: 0, jetWave: 0, swim: 0 };
 
     // やわらかさの状態(腕ごと): 節の位置(世界)・1 つ前の位置・目標・ずれ
     const buf = () => new Float32Array(NODES * 3);
@@ -287,7 +287,12 @@ export class Arms {
       let kv = p.bend * (1 - 0.4 * u) + kc + wave * u * (0.2 * Math.sin(1.3 * tk - 4 * u + phase) + 0.08 * Math.sin(2.3 * tk - 7 * u + 2 * phase));
       // 噴射: 押し出すとき腕を閉じる。付け根から先へ 0.25 秒遅れて伝わる
       if (p.jetWave > 0) kv += p.jetWave * 0.6 * (pulseAt(t - 0.25 * u) - 0.5);
-      const kh = mirror * p.side * (1 - u) + wave * u * (0.16 * Math.sin(0.9 * tk - 3 * u + phase * 0.7) + 0.06 * Math.sin(1.9 * tk - 6 * u + phase));
+      let kh = mirror * p.side * (1 - u) + wave * u * (0.16 * Math.sin(0.9 * tk - 3 * u + phase * 0.7) + 0.06 * Math.sin(1.9 * tk - 6 * u + phase));
+      // 泳いでなびく腕: 付け根から先へ流れるうねり(先ほど大きい。リボンが水になびくように)
+      if (p.swim > 0) {
+        kh += p.swim * u * 0.42 * Math.sin(3.1 * t - 6.5 * u + phase);
+        kv += p.swim * u * 0.22 * Math.sin(2.4 * t - 5 * u + phase * 1.3);
+      }
       pos.addScaledVector(T, ds);
       // 腹側へ kv、横へ kh だけ向きを回す
       const cv = Math.cos(kv * ds), sv = Math.sin(kv * ds);
@@ -432,7 +437,7 @@ export class Arms {
   }
 
   // t: 時刻、poseFn: 時刻 → 形の重み(腕ごとに少しずらして呼ぶ)、
-  // o: { apart: 台本でばらす量(R2 だけ), exploded: 分解図, jet: 噴射, pulse: 噴射の脈, windup: 出ていく前の吸い込み, soft: やわらかさ }
+  // o: { apart: 台本でばらす量(R2 だけ), exploded: 分解図, jet: 噴射, pulse: 噴射の脈, windup: 出ていく前の吸い込み, flare: 止まる前のブレーキ, soft: やわらかさ }
   // world: 腕の親(ロボット)の世界の行列、dt: 前のコマからの秒、reset: やわらかさを今の形に合わせ直す、draw: 置き場所を書くか(助走では書かない)
   update(t, poseFn, o, world, dt, reset = false, draw = true) {
     const m = this.mtx;
@@ -456,6 +461,10 @@ export class Arms {
       // 噴射: 水を押し出すとき腕を閉じ、吸い込むとき開く(イカの泳ぎ)。曲がりの波は trace で付け根から先へ
       p.e += pose.trail * o.jet * 0.12 * (0.5 - o.pulse);
       p.jetWave = pose.trail * o.jet;
+      p.swim = pose.trail;
+      // 止まる前のブレーキ: 腕を傘のように開いて、先を少し巻く
+      p.e += 0.55 * o.flare;
+      p.curl *= 1 + 0.4 * o.flare;
       p.bend *= 1 - 0.7 * a;
       p.side *= 1 - 0.7 * a;
       p.e = p.e * (1 - a) + 0.3 * a;   // ばらすときは横へ、少し上へ伸ばす

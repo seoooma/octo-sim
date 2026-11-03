@@ -12,7 +12,7 @@ import { telemetry } from './sim/telemetry.js';
 //   ?t=10.5     その時刻で止めて 1 枚描く(静止画用。カメラは段取りどおり)
 //   ?play=0     止めた状態で始める        ?hud=0  計器を出さない
 //   ?ao=0       隅の影なし                ?labels=0 / ?wake=0 / ?exploded / ?turntable  表示の切り替え
-//   ?gui        調整のつまみ              ?soft=0 腕を硬いまま(やわらかさなし)
+//   ?gui        調整のつまみ              ?soft=0 腕を硬いまま(やわらかさなし)   ?snow=0 水の中の粒なし
 //   ?step=5     1 コマずつ進める(tools/clip.mjs が動画を作るとき)
 // キーボード: スペースで再生/一時停止、← → で前後の操作、1〜6 で ASSEMBLIES
 const params = new URLSearchParams(location.search);
@@ -33,9 +33,9 @@ const ui = {
 };
 const anim = { exploded: ui.display.exploded ? 1 : 0, spin: 0 };
 
-const stage = createStage(document.getElementById('app'), { preserve: fixedTime !== null });
+const stage = createStage(document.getElementById('app'), { preserve: fixedTime !== null, snow: params.get('snow') !== '0' });
 const robot = new Robot();
-stage.scene.add(robot.group);
+stage.scene.add(robot.group, robot.world);
 const director = new Director(stage.camera, stage.controls);
 const labels = new Labels(document.getElementById('labels'));
 
@@ -128,6 +128,7 @@ function frame(dt, immediate = false) {
   else anim.spin += (Math.round(anim.spin / TAU) * TAU - anim.spin) * k;
   robot.update(s, displayState(), { dt: simDt, reset, camera: stage.camera });
   director.update(s, robot.group.position, dt, immediate, !ui.playing);
+  stage.tick(ui.time);
   stage.render(ui.ao);
   center.set(0, -0.2, 0);
   robot.group.localToWorld(center);

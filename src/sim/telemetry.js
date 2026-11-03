@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { jetAt, posAt, rotAt, pulseAt, PULSE_HZ, DURATION } from './timeline.js';
+import { jetAt, pulseAt, PULSE_HZ, DURATION } from './timeline.js';
+import { bodyPoseAt, swimSpeedAt } from './swim.js';
 import { deg, clamp, smoothstep } from '../util.js';
 
 // 計器の数字。これも時刻 t と状態だけで決める(作りものの数字だが、動きとつじつまを合わせる)
@@ -12,13 +13,8 @@ export function pressureAt(t) {
 }
 
 const up = new THREE.Vector3();
-const euler = new THREE.Euler();
-
-function upAt(t, out) {
-  const r = rotAt(t);
-  euler.set(r[0], r[1], r[2]);
-  return out.set(0, 1, 0).applyEuler(euler);
-}
+const pos = new THREE.Vector3();
+const quat = new THREE.Quaternion();
 
 // arms: 腕(曲がり具合と、輪・車輪の数)
 export function telemetry(s, arms) {
@@ -26,16 +22,16 @@ export function telemetry(s, arms) {
   const t = s.t;
   const j = s.jet;
   const wave = pulseAt(t);
-  const p0 = posAt(t - 0.05);
-  const p1 = posAt(t + 0.05);
-  const speed = Math.hypot(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]) * 10 * 1.15 + 0.01 * (1 + Math.sin(t * 1.3));
-  upAt(t, up);
+  const sw = swimSpeedAt(t);
+  const speed = sw.speed + 0.01 * (1 + Math.sin(t * 1.3));
+  bodyPoseAt(t, pos, quat);
+  up.set(0, 1, 0).applyQuaternion(quat);
   const tilt = deg(Math.acos(clamp(up.y, -1, 1)));
   // 泳いでいるとき(腕がなびく)は頭を前へ倒した向きなので負、腹を見せるときは正
   const pitch = (1 - 2 * smoothstep(0.2, 0.4, s.pose.trail)) * tilt + 0.6 * Math.sin(t * 0.9);   // 切り替わりで跳ばないように
-  const roll = deg(s.rot[1]) * 0.35 + 0.4 * Math.sin(t * 0.6 + 1);
-  const depth = 12.4 - s.pos[1] * 0.12 + 0.04 * Math.sin(t * 0.31);
-  const vs = (p1[1] - p0[1]) * 10 * 0.12 + 0.05 * Math.cos(t * 0.31);
+  const roll = deg(Math.atan2(up.x, up.y)) * 0.2 + 0.4 * Math.sin(t * 0.6 + 1);
+  const depth = 12.4 - pos.y * 0.12 + 0.04 * Math.sin(t * 0.31);
+  const vs = sw.vy * 0.12 + 0.05 * Math.cos(t * 0.31);
   const busy = Math.max(s.mantleOpen, s.armApart, s.beakOpen, s.siphonOpen, s.pose.star * 0.6, s.opticsScan * 0.4);
   const curlState = s.armApart > 0.5 ? 'DETACHED' : s.pose.trail > 0.5 ? 'TRAILING' : 'CURLING';
   return {

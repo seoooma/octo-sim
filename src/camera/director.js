@@ -5,7 +5,7 @@ import { smoothstep, lerp } from '../util.js';
 // カメラの段取り: 操作ごとの構図(位置・注視点・画角)と、つなぎ。
 // follow はロボットの動きにどれだけ付いていくか(1 で完全に追う)。
 const SHOTS = {
-  inbound: { pos: [-0.8, 0.9, 13.2], target: [0.2, -0.5, 0], fov: 30, follow: 1 },
+  inbound: { pos: [-0.8, 0.9, 13.2], target: [0.2, -0.5, 0], fov: 30, follow: 0.7 },   // 追いきらず、右下の手前から入ってくるのを見せる
   hold: { pos: [0, 2.6, 12.4], target: [0, -0.45, 0], fov: 30, follow: 1 },
   mantle: { pos: [0.9, 5.4, 8.8], target: [0, 0.1, 0], fov: 30, follow: 1 },
   arm: { pos: [-3.6, 3.4, 15.0], target: [-2.4, 0.1, 0.9], fov: 30, follow: 1 },

@@ -5,10 +5,15 @@ import { buildCore } from './core.js';
 import { buildBeak } from './beak.js';
 import { buildSiphon } from './siphon.js';
 import { Arms } from './arms.js';
-import { jetAt, poseAt, pulseAt, strokeAt } from '../sim/timeline.js';
+import { jetAt, poseAt, pulseAt } from '../sim/timeline.js';
+import { bodyPoseAt } from '../sim/swim.js';
 
 const v = new THREE.Vector3();
-const heading = new THREE.Vector3();
+const qSpin = new THREE.Quaternion();
+const Y = new THREE.Vector3(0, 1, 0);
+const ONE = new THREE.Vector3(1, 1, 1);
+const bp = new THREE.Vector3();
+const bq = new THREE.Quaternion();
 
 // ロボット全体。台本の状態(sim/timeline.js の evaluate)と表示の切り替えを受けて、各部を動かす。
 export class Robot {
@@ -21,6 +26,14 @@ export class Robot {
     this.siphon = buildSiphon(m);
     this.arms = new Arms(m);
     this.group.add(this.body.group, this.core.group, this.beak.group, this.siphon.group, this.arms.group);
+    // 世界に置く物(泡の跡: 体と一緒に動かず、水の中に残る)。main.js がシーンに足す
+    this.world = new THREE.Group();
+    this.world.add(this.siphon.bubbles);
+    // 時刻 tb の体の行列(泡が生まれた場所を求める)
+    this.bodyMatrixAt = (tb, m) => {
+      bodyPoseAt(tb, bp, bq);
+      return m.compose(bp, bq, ONE);
+    };
     this.group.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = o.material !== m.bubble;   // 泡は影を落とさない
@@ -67,31 +80,20 @@ export class Robot {
   update(s, d, { dt = 0, reset = false, camera = null, draw = true } = {}) {
     const t = s.t;
     const ex = d.exploded;
-    const hold = s.pose.hold;
-    // 漂い: 止まっているときもゆっくり揺れて、少し向きを変える(腕が遅れてついてくる)
-    this.group.position.fromArray(s.pos);
-    this.group.position.x += 0.07 * Math.sin(0.37 * t) * hold;
-    // ひとかきから 0.3 秒遅れて少し浮く(腕で水をかいて浮いて見える)
-    this.group.position.y += 0.06 * Math.sin(0.8 * t) + 0.02 * Math.sin(1.9 * t + 1) + 0.05 * strokeAt(t - 0.3) * hold;
-    this.group.position.z += 0.05 * Math.sin(0.29 * t + 2) * hold;
-    this.group.rotation.set(
-      s.rot[0] + 0.04 * Math.sin(0.53 * t),
-      s.rot[1] + d.spin + 0.3 * Math.sin(0.42 * t) * hold,
-      s.rot[2] + 0.05 * Math.sin(0.41 * t + 1),
-    );
-    // 胴は硬い殻なので伸び縮みさせない(2026-11-03 ユーザーの指示)。噴射の脈は、腕の開き閉じと、頭の向きへのひと押しに出す
-    const pulse = pulseAt(t);
-    heading.set(0, 1, 0).applyEuler(this.group.rotation);
-    this.group.position.addScaledVector(heading, 0.06 * s.jet * pulse);
+    // 体の位置と向きは sim/swim.js(泳ぐ道・漂い・台本の向き)。回転台はその上から縦の軸で回す
+    bodyPoseAt(t, this.group.position, this.group.quaternion);
+    if (d.spin) this.group.quaternion.premultiply(qSpin.setFromAxisAngle(Y, d.spin));
     this.group.updateMatrixWorld(true);
+    // 胴は硬い殻なので伸び縮みさせない(2026-11-03 ユーザーの指示)。噴射の脈は、泳ぐ速さ(swim.js)と腕の開き閉じに出す
+    const pulse = pulseAt(t);
     if (draw) {
       const look = camera ? this.group.worldToLocal(v.copy(camera.position)) : null;
       this.body.update(t, s.mantleOpen, s.opticsScan, ex, look);
       this.core.update(t, Math.max(s.mantleOpen, ex), s.jet);
       this.beak.update(t, Math.max(s.beakOpen, ex * 0.5));
-      this.siphon.update(t, s.siphonOpen, jetAt, d.wake);
+      this.siphon.update(t, s.siphonOpen, jetAt, d.wake, this.bodyMatrixAt);
     }
-    const o = { apart: s.armApart, exploded: ex, jet: s.jet, pulse, windup: s.windup, soft: d.soft };
+    const o = { apart: s.armApart, exploded: ex, jet: s.jet, pulse, windup: s.windup, flare: s.flare, soft: d.soft };
     this.arms.update(t, poseAt, o, this.group.matrixWorld, dt, reset, draw);
   }
 }

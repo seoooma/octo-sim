@@ -4,11 +4,13 @@ import { hash, fract, smoothstep } from '../util.js';
 import { pulseAt } from '../sim/timeline.js';
 
 // 噴射口(サイフォン): 腹の後ろから下向きに出た 3 段の筒と、先の 6 枚のひれ。
-// 噴射すると泡(ジェットの航跡)を出す。泡も時刻だけで決まる(どの時刻へ飛んでも同じ)。
+// 噴射すると泡(ジェットの航跡)を出す。泡は生まれた場所(その時刻の体の位置)の水の中に残り、体と一緒には動かない。
+// 泡も時刻だけで決まる(どの時刻へ飛んでも同じ)。
 const SLEEVES = 3;
 const FLAPS = 6;
 const BUBBLES = 280;
-const LIFE = 1.3;   // 泡の寿命(秒)
+const LIFE = 1.6;   // 泡の寿命(秒)
+const RISE = 0.22;  // 泡が浮く速さ
 
 export function buildSiphon(m) {
   const root = new THREE.Group();
@@ -57,11 +59,16 @@ export function buildSiphon(m) {
   anchors.nozzle.position.set(0, 0.12, 0);
   nozzle.add(anchors.nozzle);
 
-  // 泡(白い小さな球)。筒の先から +y へ流れて広がる
+  // 泡(白い小さな球)。世界に置く(robot.world)。生まれたときの筒の先から、筒の向きへ吹き出して広がり、少し浮く
   const bubbles = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), m.bubble, BUBBLES);
   bubbles.frustumCulled = false;
   bubbles.castShadow = false;
-  root.add(bubbles);
+  root.updateMatrix();
+  const rootMatrix = root.matrix.clone();   // 胴の中での筒の置き場所(動かない)
+  const born = new THREE.Matrix4();
+  const tip = new THREE.Vector3();
+  const dir = new THREE.Vector3();
+  const m3 = new THREE.Matrix3();
   anchors.wake = new THREE.Object3D();
   anchors.wake.position.set(-0.2, 1.0, 0);
   root.add(anchors.wake);
@@ -70,8 +77,9 @@ export function buildSiphon(m) {
   const pos = new THREE.Vector3();
   const scl = new THREE.Vector3();
 
-  // open: 筒を伸ばしてひれを開く量、jetFn: 時刻 → 噴射の強さ、wake: 泡を出すか
-  function update(t, open, jetFn, wake) {
+  // open: 筒を伸ばしてひれを開く量、jetFn: 時刻 → 噴射の強さ、wake: 泡を出すか、
+  // bodyAt: 時刻 → 体の世界の行列(泡が生まれた場所を求める)
+  function update(t, open, jetFn, wake, bodyAt) {
     const jet = jetFn(t);
     const ext = Math.max(open, jet);
     sleeves.forEach((s, i) => (s.position.y = s.userData.home + ext * i * 0.09));
@@ -83,15 +91,23 @@ export function buildSiphon(m) {
       const u = t / LIFE + hash(i);
       const cycle = Math.floor(u);
       const age = fract(u) * LIFE;
-      const born = jetFn(t - age);
-      const on = wake && born > hash(i * 7.3 + cycle * 1.7) * 0.9 + 0.05;
+      const tb = t - age;
+      const on = wake && jetFn(tb) > hash(i * 7.3 + cycle * 1.7) * 0.9 + 0.05;
       if (!on) {
         mat.makeScale(0, 0, 0);
       } else {
-        const h1 = hash(i * 3.1 + cycle), h2 = hash(i * 5.7 + cycle), h3 = hash(i * 11.3 + cycle);
-        const d = tipY + age * (1.4 + 1.6 * h1);
-        const spread = 0.05 + age * 0.55;
-        pos.set((h2 - 0.5) * spread * 2, d, (h3 - 0.5) * spread * 2);
+        const h1 = hash(i * 3.1 + cycle), h2 = hash(i * 5.7 + cycle), h3 = hash(i * 11.3 + cycle), h4 = hash(i * 13.9 + cycle);
+        // 生まれたときの筒の先と向き(世界)
+        born.multiplyMatrices(bodyAt(tb, born), rootMatrix);
+        tip.set(0, tipY, 0).applyMatrix4(born);
+        dir.set(0, 1, 0).applyMatrix3(m3.setFromMatrix4(born)).normalize();
+        // 吹き出す勢いは水の抵抗で弱まる(遠くへ行くほどゆっくり)。広がりながら少し浮く
+        const d = (1.2 + 1.4 * h1) * (1 - Math.exp(-2.2 * age));
+        const spread = 0.04 + age * 0.4;
+        pos.copy(tip).addScaledVector(dir, d);
+        pos.x += (h2 - 0.5) * spread * 2;
+        pos.y += (h3 - 0.5) * spread * 2 + RISE * age;
+        pos.z += (h4 - 0.5) * spread * 2;
         const size = (0.006 + 0.016 * h1) * (1 + age * 1.8) * (1 - smoothstep(0.7, 1, age / LIFE));
         scl.set(size, size, size);
         mat.compose(pos, q, scl);
@@ -103,5 +119,5 @@ export function buildSiphon(m) {
     bubbles.visible = n > 0;
   }
 
-  return { group: root, anchors, update };
+  return { group: root, anchors, update, bubbles };
 }
