@@ -5,7 +5,7 @@ export const COLORS = {
   shell: 0xf2f0ec,
   orange: 0xef5b2b,
   wheel: 0xd8432e,
-  dark: 0x1d1e21,
+  dark: 0x2a2c30,
   metal: 0x9a9da1,
   glass: 0x07080a,
   background: 0xeeece8,
@@ -31,7 +31,8 @@ export function makeMaterials() {
     cable: new THREE.MeshStandardMaterial({ color: 0x121315, roughness: 0.55, metalness: 0.1 }),
     metal: new THREE.MeshStandardMaterial({ color: COLORS.metal, roughness: 0.32, metalness: 0.85 }),
     irisBlade: new THREE.MeshStandardMaterial({ color: 0x3a3c40, roughness: 0.3, metalness: 0.7, side: THREE.DoubleSide }),
-    glass: new THREE.MeshPhysicalMaterial({ color: COLORS.glass, roughness: 0.06, clearcoat: 1, clearcoatRoughness: 0.03 }),
+    // 暗く深いレンズ(白い輪が大きく映らないように)
+    glass: new THREE.MeshPhysicalMaterial({ color: COLORS.glass, roughness: 0.25, clearcoat: 0.4, clearcoatRoughness: 0.1, envMapIntensity: 0.35 }),
     bubble: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15, transparent: true, opacity: 0.55, depthWrite: false }),
   };
 }

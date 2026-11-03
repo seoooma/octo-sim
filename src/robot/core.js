@@ -50,9 +50,9 @@ function cableBundle(center, radius, count, seed) {
     const pts = [];
     for (let j = 0; j < 5; j++) pts.push(inSphere(radius * (j === 0 || j === 4 ? 1 : 0.85)));
     const curve = new THREE.CatmullRomCurve3(pts);
-    dark.push(new THREE.TubeGeometry(curve, 36, 0.018 + rnd() * 0.016, 5, false).toNonIndexed());
+    dark.push(new THREE.TubeGeometry(curve, 28, 0.009 + rnd() * 0.009, 4, false).toNonIndexed());
     // 端の差し込み口(一部だけオレンジ)
-    if (i % 4 === 0) {
+    if (i % 9 === 0) {
       const p = curve.getPoint(1);
       const tan = curve.getTangent(1);
       const plug = new THREE.CylinderGeometry(0.03, 0.03, 0.07, 8);
@@ -69,7 +69,7 @@ export function buildCore(m) {
   const anchors = {};
 
   // 配線の束
-  const bundle = cableBundle(new THREE.Vector3(0, 0.38, 0), 0.6, 90, 7);
+  const bundle = cableBundle(new THREE.Vector3(0, 0.38, 0), 0.6, 220, 7);   // 細い線が密な玉(見本どおり)
   const cables = new THREE.Mesh(bundle.cables, m.cable);
   const plugs = new THREE.Mesh(bundle.plugs, m.orange);
   core.add(cables, plugs);
@@ -142,7 +142,7 @@ export function buildCore(m) {
       p.userData.head.position.y = 0.33 + y;
     }
     // 配線の束は外套が開くにつれて少し持ち上がる
-    const lift = 0.12 * open;
+    const lift = 0.25 * open;
     cables.position.y = lift;
     plugs.position.y = lift;
   }

@@ -5,13 +5,13 @@ import { smoothstep, lerp } from '../util.js';
 // カメラの段取り: 操作ごとの構図(位置・注視点・画角)と、つなぎ。
 // follow はロボットの動きにどれだけ付いていくか(1 で完全に追う)。
 const SHOTS = {
-  inbound: { pos: [-0.6, 0.6, 10.5], target: [0.2, -0.3, 0], fov: 30, follow: 1 },
-  hold: { pos: [0, 1.5, 9.4], target: [0, -0.45, 0], fov: 30, follow: 1 },
-  mantle: { pos: [0.8, 4.4, 7.0], target: [0, 0.15, 0], fov: 30, follow: 1 },
-  arm: { pos: [-3.4, 3.0, 13.5], target: [-2.6, -0.3, 0.9], fov: 30, follow: 1 },
-  optics: { pos: [2.0, 0.5, 5.8], target: [0.1, -0.2, 0.6], fov: 28, follow: 1 },
-  beak: { pos: [0.3, -3.9, 11.4], target: [0, -0.9, 0], fov: 30, follow: 1 },
-  siphon: { pos: [-7.0, -1.8, -5.6], target: [0, -1.0, -0.5], fov: 30, follow: 1 },
+  inbound: { pos: [-0.8, 0.9, 13.2], target: [0.2, -0.5, 0], fov: 30, follow: 1 },
+  hold: { pos: [0, 2.6, 12.4], target: [0, -0.45, 0], fov: 30, follow: 1 },
+  mantle: { pos: [0.9, 5.4, 8.8], target: [0, 0.1, 0], fov: 30, follow: 1 },
+  arm: { pos: [-3.6, 3.4, 15.0], target: [-2.4, 0.1, 0.9], fov: 30, follow: 1 },
+  optics: { pos: [2.7, 0.8, 8.0], target: [0.1, -0.25, 0.5], fov: 28, follow: 1 },
+  beak: { pos: [0.3, -4.6, 13.4], target: [0, -0.9, 0], fov: 30, follow: 1 },
+  siphon: { pos: [-8.0, -2.0, -6.4], target: [0, -1.0, -0.5], fov: 30, follow: 1 },
   depart: { pos: [-0.8, 1.0, 9.2], target: [0.6, 0, 0], fov: 30, follow: 0.15 },   // ほとんど追わず、画面の外へ出ていく
 };
 const BLEND = 1.6;       // 構図を切り替える時間(秒)

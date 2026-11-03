@@ -26,7 +26,7 @@ const PETALS = 8;              // 外套の花びら(縦の継ぎ目で分かれ
 const OPEN_ROWS = [[0.15, 0.6], [0.6, 1.1], [1.1, 1.6]];   // 開く 3 段(上からの角度 θ)
 const FIXED_ROW = [1.6, 2.05];                             // 開かない一番下の段(目が付く)
 const HINGE = FIXED_ROW[0];    // 花びらの蝶番の高さ
-const OPEN_ANGLE = 1.05;       // 開いたときの角度(ラジアン)
+const OPEN_ANGLE = 1.3;        // 開いたときの角度(ラジアン)
 const SEAM = 0.006;            // 継ぎ目の幅(ラジアン)
 const DPHI = (Math.PI * 2) / PETALS;
 
@@ -78,7 +78,7 @@ function makeEye(m) {
   const housing = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.38, 0.28, 48), m.shell);
   housing.rotation.x = Math.PI / 2;
   housing.position.z = 0.07;
-  const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.034, 20, 64), m.eyeRim);
+  const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.022, 16, 64), m.eyeRim);
   bezel.position.z = 0.215;
   const flange = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.03, 16, 64), m.shell);
   flange.position.z = 0.222;
@@ -205,7 +205,7 @@ export function buildBody(m) {
   }
 
   // 首輪(腕の付け根)と、その下の黒い腹
-  const collar = new THREE.Mesh(new THREE.CylinderGeometry(BOTTOM_R, BOTTOM_R - 0.08, 0.3, 64), m.shell);
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(BOTTOM_R, BOTTOM_R - 0.08, 0.3, 64), m.darkMetal);   // 白い頭と白い腕のあいだは暗い首(見本どおり)
   collar.position.y = COLLAR_Y;
   const band = new THREE.Mesh(new THREE.CylinderGeometry(BOTTOM_R - 0.01, BOTTOM_R - 0.01, 0.024, 64), m.dark);
   band.position.y = BOTTOM_Y - 0.006;
@@ -214,14 +214,14 @@ export function buildBody(m) {
   belly.position.y = BELLY_Y;
   body.add(collar, band, belly);
 
-  // 腕の付け根の玉(白)とオレンジの輪
+  // 腕の付け根の玉(白)と暗い輪
   for (let k = 0; k < ARM_COUNT; k++) {
     const a = armAngle(k);
     const dir = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.18, 32, 16), m.shell);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.23, 32, 16), m.shell);
     ball.position.copy(dir).multiplyScalar(ARM_BASE_R).setY(ARM_BASE_Y);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 12, 40), m.orange);
-    ring.position.copy(dir).multiplyScalar(ARM_BASE_R + 0.09).setY(ARM_BASE_Y);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.035, 12, 40), m.darkMetal);
+    ring.position.copy(dir).multiplyScalar(ARM_BASE_R + 0.12).setY(ARM_BASE_Y);
     ring.lookAt(ring.position.clone().add(dir));
     body.add(ball, ring);
   }

@@ -6,13 +6,14 @@ import { pulseAt, strokeAt } from '../sim/timeline.js';
 
 // 腕 = 中心線のカーブに沿って、輪(白い筒+赤い車輪2つ)とばねを交互に並べたもの。
 // カーブは付け根から先へ「曲がり具合」を足していって作る(腹側へ曲げる bend、横へ曲げる side、先の巻き curl)。
-const L = 3.4;          // 腕の長さ
-const R0 = 0.15;        // 付け根の太さ(輪の半径)
-const TAPER = 0.74;     // 先は付け根の 26% の太さ
+// 太さと長さは見本に合わせた(輪の半径は胴の約 0.21 倍、長さは直径の約 1.1 倍の筒。2026-11-03 のレビュー)
+const L = 3.8;          // 腕の長さ
+const R0 = 0.21;        // 付け根の太さ(輪の半径)
+const TAPER = 0.62;     // 先は付け根の 38% の太さ(先まで太めのまま大きく巻く)
 const STEPS = 260;      // カーブを刻む数
-const START = 0.14;     // 付け根の玉から最初の輪まで
-const LINK = 1.5;       // 輪の長さ(半径の何倍か)
-const GAP = 0.55;       // 輪と輪のすき間(ばねの部分)
+const START = 0.2;      // 付け根の玉から最初の輪まで
+const LINK = 1.9;       // 輪の長さ(半径の何倍か。短いほど先の渦がなめらか)
+const GAP = 0.55;       // 輪と輪のすき間(銀の関節とばね)
 const APART_STRETCH = 0.7;   // ばらしたとき、腕がどれだけ伸びるか(1 なら 2 倍)
 const WHEEL_DROP = 1.1;      // ばらしたとき、車輪が輪から離れる距離(輪の半径の何倍か)
 // 形が変わるとき、前の腕から後ろの腕へ順に遅らせる(左右は同じ順位なので正面に継ぎ目が出ない)。少しずつばらつかせる
@@ -80,6 +81,9 @@ ARM_NAMES.forEach((n, k) => {
   POSES.star[n] = { e: 0.08 + 0.04 * Math.sin(k * 1.9), bend: -0.05 + 0.25 * (hash(k + 5) * 2 - 1), side: 0.15 * (hash(k + 9) * 2 - 1), curl: 0.75 + 0.45 * hash(k + 2) };
 });
 
+const WHEEL_Z = 0.92;   // 車軸の位置(輪の中心から腹側へ)
+const WHEEL_ROWS = [-0.45, 0.45];   // 1 つの輪の車輪の組(輪の軸に沿った位置)
+
 // 輪 1 個の形(半径 1。軸は y、腹側は +z、横は x)。材質ごとにまとめる
 function linkGeometries() {
   const prof = [];
@@ -94,7 +98,7 @@ function linkGeometries() {
     prof.push(new THREE.Vector2(0.86 + 0.14 * Math.cos(a), h - 0.14 + 0.14 * Math.sin(a)));
   }
   prof.push(new THREE.Vector2(0, h));
-  const shell = new THREE.LatheGeometry(prof, 32);
+  const shell = new THREE.LatheGeometry(prof, 24);
 
   const dark = [];
   for (const y of [-h + 0.12, h - 0.12]) {
@@ -103,9 +107,11 @@ function linkGeometries() {
     c.translate(0, y, 0);
     dark.push(c);
   }
-  const fork = new THREE.BoxGeometry(0.5, 0.34, 0.3);
-  fork.translate(0, 0, 0.86);
-  dark.push(fork);
+  for (const y of WHEEL_ROWS) {
+    const fork = new THREE.BoxGeometry(0.5, 0.34, 0.3);
+    fork.translate(0, y, 0.86);
+    dark.push(fork);
+  }
   for (const x of [-1, 1]) {
     for (const y of [-0.35, 0.35]) {
       const r = new THREE.SphereGeometry(0.07, 8, 6);
@@ -116,26 +122,31 @@ function linkGeometries() {
   // 車輪(ばらすと輪から離れるので、置き場所は別に持つ)。原点は車軸の真ん中
   const tires = [];
   const hubs = [];
-  for (const x of [-0.42, 0.42]) {
-    const tire = new THREE.CylinderGeometry(0.42, 0.42, 0.26, 20);
-    tire.rotateZ(Math.PI / 2);
-    tire.translate(x, 0, 0);
-    tires.push(tire);
-    const hub = new THREE.CylinderGeometry(0.19, 0.19, 0.3, 14);
-    hub.rotateZ(Math.PI / 2);
-    hub.translate(x, 0, 0);
-    hubs.push(hub);
+  // 1 つの輪に 2 組(前後)。黒いタイヤにオレンジのハブ(見本どおり)
+  const axles = [];
+  for (const y of WHEEL_ROWS) {
+    for (const x of [-0.42, 0.42]) {
+      const tire = new THREE.CylinderGeometry(0.42, 0.42, 0.26, 20);
+      tire.rotateZ(Math.PI / 2);
+      tire.translate(x, y, 0);
+      tires.push(tire);
+      const hub = new THREE.CylinderGeometry(0.21, 0.21, 0.3, 14);
+      hub.rotateZ(Math.PI / 2);
+      hub.translate(x, y, 0);
+      hubs.push(hub);
+    }
+    const axle = new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8);
+    axle.rotateZ(Math.PI / 2);
+    axle.translate(0, y, 0);
+    axles.push(axle);
   }
-  const axle = new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8);
-  axle.rotateZ(Math.PI / 2);
-  hubs.push(axle);
-  // 背中のオレンジの板(輪 3 個に 1 個)
-  const plate = new THREE.CylinderGeometry(1.02, 1.02, 0.62, 10, 1, true, Math.PI - 0.6, 1.2);
+  // 背中のオレンジの細い帯(輪 3 個に 1 個)
+  const plate = new THREE.CylinderGeometry(1.02, 1.02, 0.14, 10, 1, true, Math.PI - 0.6, 1.2);
   return {
     shell,
     dark: mergeGeometries(dark.map((g) => g.toNonIndexed())),
-    tire: mergeGeometries(tires),
-    hub: mergeGeometries(hubs.map((g) => g.toNonIndexed())),
+    tire: mergeGeometries([...tires, ...axles].map((g) => g.toNonIndexed())),
+    hub: mergeGeometries(hubs),
     plate,
   };
 }
@@ -150,12 +161,11 @@ function springGeometries() {
     const a = u * turns * Math.PI * 2;
     pts.push(new THREE.Vector3(0.68 * Math.cos(a), (u - 0.5) * len, 0.68 * Math.sin(a)));
   }
-  const coil = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.065, 6, false);
-  const core = new THREE.CylinderGeometry(0.45, 0.45, len + 0.1, 16);
+  const coil = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, 0.065, 5, false);
+  const core = new THREE.CylinderGeometry(0.2, 0.2, len + 0.1, 12);   // 銀の芯の棒
   return { coil, core };
 }
 
-const WHEEL_Z = 0.92;   // 車軸の位置(輪の中心から腹側へ)
 
 export class Arms {
   constructor(m) {
@@ -173,7 +183,7 @@ export class Arms {
       s += GAP * r;
     }
     this.linkCount = this.links.length * ARM_COUNT;
-    this.wheelCount = this.linkCount * 2;
+    this.wheelCount = this.linkCount * 2 * WHEEL_ROWS.length;
     const nl = this.linkCount;
     const ns = this.springs.length * ARM_COUNT;
     const np = this.links.filter((_, i) => i % 3 === 1).length * ARM_COUNT;
@@ -189,15 +199,15 @@ export class Arms {
     };
     const linkMeshes = [new THREE.InstancedMesh(lg.shell, m.shell, nl), new THREE.InstancedMesh(lg.dark, m.dark, nl)];
     this.linkMatrix = share(linkMeshes);
-    const wheelMeshes = [new THREE.InstancedMesh(lg.tire, m.wheel, nl), new THREE.InstancedMesh(lg.hub, m.dark, nl)];
+    const wheelMeshes = [new THREE.InstancedMesh(lg.tire, m.dark, nl), new THREE.InstancedMesh(lg.hub, m.wheel, nl)];
     this.wheelMatrix = share(wheelMeshes);
-    const springMeshes = [new THREE.InstancedMesh(sg.coil, m.metal, ns), new THREE.InstancedMesh(sg.core, m.dark, ns)];
+    const springMeshes = [new THREE.InstancedMesh(sg.coil, m.metal, ns), new THREE.InstancedMesh(sg.core, m.metal, ns)];
     this.springMatrix = share(springMeshes);
     this.plateMesh = new THREE.InstancedMesh(lg.plate, m.orange, np);
     this.plateMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const tipGeo = new THREE.SphereGeometry(1, 16, 12);
     tipGeo.scale(0.9, 1.3, 0.9);
-    this.tipMesh = new THREE.InstancedMesh(tipGeo, m.dark, ARM_COUNT);
+    this.tipMesh = new THREE.InstancedMesh(tipGeo, m.shell, ARM_COUNT);   // 先は白い丸(黒い玉だと触角に見える)
 
     this.meshes = [...linkMeshes, ...wheelMeshes, ...springMeshes, this.plateMesh, this.tipMesh];
     for (const mesh of this.meshes) {
@@ -272,7 +282,7 @@ export class Arms {
       const s = i * ds;
       const u = s / len;
       // 先の巻き: 先へ行くほど急に曲がる(対数らせん)。背中側へ巻くので車輪は外を向く。手探りでは始まりが先へずれてほどける
-      const kc = ((-p.curl * 4.0) / (len - s + 0.3)) * smoothstep(0.3 + 0.4 * r, 0.62 + 0.3 * r, u);
+      const kc = ((-p.curl * 5.0) / (len - s + 0.6)) * smoothstep(0.3 + 0.4 * r, 0.62 + 0.3 * r, u);   // 太い先でも詰まらない大きさの渦
       // 付け根から先へ進む 2 つの波(先ほど大きく揺れる)
       let kv = p.bend * (1 - 0.4 * u) + kc + wave * u * (0.2 * Math.sin(1.3 * tk - 4 * u + phase) + 0.08 * Math.sin(2.3 * tk - 7 * u + 2 * phase));
       // 噴射: 押し出すとき腕を閉じる。付け根から先へ 0.25 秒遅れて伝わる
@@ -448,7 +458,7 @@ export class Arms {
       p.jetWave = pose.trail * o.jet;
       p.bend *= 1 - 0.7 * a;
       p.side *= 1 - 0.7 * a;
-      p.e = p.e * (1 - a) + 0.12 * a;   // ばらすときは横へまっすぐ伸ばす
+      p.e = p.e * (1 - a) + 0.3 * a;   // ばらすときは横へ、少し上へ伸ばす
       this.curls[name] = p.curl;
       const stretch = 1 + APART_STRETCH * a;
       this.trace(k, t, p, L * stretch, (1 - 0.5 * pose.star) * (1 - a));
@@ -470,7 +480,7 @@ export class Arms {
         this.placeAt(s, m, radiusAt(s0) * (1 - 0.35 * a)).toArray(this.springMatrix.array, si++ * 16);
       }
       const tipS = START + (L - 0.01 - START) * stretch;
-      this.tipMesh.setMatrixAt(k, this.placeAt(tipS, m, radiusAt(L) * 1.1));
+      this.tipMesh.setMatrixAt(k, this.placeAt(tipS, m, radiusAt(L) * 0.8));
       if (k === DETACH_ARM) {
         this.anchors.root.position.fromArray(this.P, 0);
         this.placeAt(START + (this.links[4] - START) * stretch, m, 1);

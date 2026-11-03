@@ -14,6 +14,8 @@
 }
 
 #hud { position: fixed; inset: 0; pointer-events: none; font-family: var(--mono); color: var(--ink); overflow: hidden; }
+/* 四隅を少し暗く(見本の軽い明暗) */
+#hud::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 70% 75% at 50% 45%, transparent 50%, rgba(110, 85, 60, 0.06)); }
 #hud .frame { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; }
 #hud button, #hud .track, #hud .panel.interactive { pointer-events: auto; }
 #hud .hide { display: none !important; }

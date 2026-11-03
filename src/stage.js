@@ -30,7 +30,8 @@ export function createStage(container, { preserve = false } = {}) {
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(COLORS.background);
+  // 背景は暖かい白(見本の真ん中 ≈ (253,250,245))。色の調子(Neutral)を通ると暗くなるので、線形で 1 より明るい値を置く
+  scene.background = new THREE.Color().setRGB(3.0, 2.9, 2.75);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.5;
