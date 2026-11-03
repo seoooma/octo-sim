@@ -5,6 +5,8 @@
 ユーザーは日本語で話す。返事・コミットメッセージ・コード中のコメントは日本語で書く。画面の文字は英語(見本と同じ)。
 粒子の動画(~/particle)・2D 物理ショート(~/shorts2d)とは別のプロジェクト。
 
+**公開ページ: https://seoooma.github.io/octo-sim/**(GitHub の公開リポジトリ seoooma/octo-sim。2026-11-03 にユーザーが「公開リポジトリで良い」と決めた)。`main` に push すると `.github/workflows/pages.yml` が約1分で出し直す。ユーザーは Mac の前にいないことが多いので、確認はこのページと Release の静止画で。
+
 ## 構成(2026-11-03 にユーザーが選んだ: Blender ではなく three.js、動画ではなく Web ページ)
 - Vite + three.js(0.187 に固定)。ビルドなしで `npm run dev` がそのまま動く。
 - `src/main.js` 描画・光・床・仕上げ(GTAO の隅の影)・URL の指定・時間の進め方
@@ -24,11 +26,11 @@
 2. 腕の巻きの動き(ARM CURL 0〜100%)
 3. UI の枠(左右のパネル・ゲージ・下のタイムライン)
 4. 操作(外套を開く・分解図・腕を 1 本だけ目立たせる・TURNTABLE)と、25 秒の台本
-5. 公開の仕方(GitHub Pages など。未定)
+5. 公開(GitHub Pages、済み。2026-11-03)
 
 ## 守ること
 1. **画像・動画の生成物を git に入れない**(`.gitignore` 済み: out/ *.png *.mp4 など)。1MB を超えるバイナリもコミットしない。
-2. **確認の静止画・動画は GitHub Release「previews」に置き**、URL をチャットで伝える。
+2. **確認はまず公開ページ**(push して `gh run watch` で出し終わるのを待ち、`SHOT_BASE=https://seoooma.github.io/octo-sim/ node tools/shot.mjs ...` で本当に出たか撮って見る)。静止画・動画は GitHub Release「previews」に置き、URL をチャットで伝える。
 3. **履歴の書き換え・force-push は、その都度ユーザーの許可を取る。**
 4. 作業は `main` へ(ブランチ・PR は使っていない)。コミットは意味のある単位で。
 5. **完了と言う前に、静止画を撮って自分で見る**(`tools/shot.mjs`)。`tools/fps.mjs` でエラー・警告が出ないことも見る。
