@@ -8,6 +8,7 @@ import { Labels } from './ui/labels.js';
 // 生き物の一覧(SPECIMEN の切り替え)。?creature=spider で選ぶ。ページを読み直して切り替える
 const SPECIES = [
   { id: 'octopus', label: 'OCTOPUS', load: () => import('./creatures/octopus/index.js') },
+  { id: 'spider', label: 'SPIDER', load: () => import('./creatures/spider/index.js') },
 ];
 
 // URL の指定:
@@ -138,7 +139,7 @@ function frame(dt, immediate = false) {
   if (ui.display.turntable) anim.spin += dt * 0.35;
   else anim.spin += (Math.round(anim.spin / TAU) * TAU - anim.spin) * k;
   robot.update(s, displayState(), { dt: simDt, reset, camera: stage.camera });
-  director.update(s, robot.group.position, dt, immediate, !ui.playing);
+  director.update(s, robot.focus ?? robot.group.position, dt, immediate, !ui.playing);
   stage.tick(ui.time);
   stage.render(ui.ao);
   robot.center(center);

@@ -44,6 +44,15 @@ try {
   check('EXPLODED が点く', await page.$eval('button[data-disp="exploded"]', (el) => el.classList.contains('on')), 'class');
   await page.screenshot({ path: out });
   console.log(out);
+
+  // 生き物の切り替え: SPIDER を押すと蜘蛛のページに変わり、RADIALS で縦糸の操作へ
+  await page.click('button[data-species="spider"]');
+  await page.waitForURL(/creature=spider/);
+  await page.waitForTimeout(1500);
+  check('SPIDER を押すと蜘蛛に切り替わる', (await page.$eval('h1', (el) => el.textContent)).includes('AX-8'), await page.$eval('h1', (el) => el.textContent));
+  await page.click('button[data-asm="RADIALS"]');
+  await page.waitForTimeout(600);
+  check('RADIALS を押すと縦糸の操作へ', (await text('mode')) === 'RADIAL LINES', await text('mode'));
 } finally {
   await browser.close();
   await server.close();
