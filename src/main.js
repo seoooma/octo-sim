@@ -20,7 +20,8 @@ const state = {
 };
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: fixedTime !== null });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const touch = window.matchMedia('(pointer: coarse)').matches;   // スマホ・タブレット
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, touch ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.shadowMap.enabled = true;
@@ -43,11 +44,14 @@ const VIEWS = {
 };
 const [camPos, camTarget] = VIEWS[params.get('view')] ?? VIEWS.front;
 camera.position.fromArray(camPos);
+// 縦長の画面(スマホを縦に持ったとき)は、腕が切れすぎないようにカメラを遠ざける
+const narrow = Math.max(1, 1.5 / camera.aspect);
+camera.position.sub(new THREE.Vector3().fromArray(camTarget)).multiplyScalar(narrow).add(new THREE.Vector3().fromArray(camTarget));
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.fromArray(camTarget);
 controls.enableDamping = true;
 controls.minDistance = 3;
-controls.maxDistance = 25;
+controls.maxDistance = 40;
 
 // 光: 左上前からの主光(影を落とす)+右からの弱い光+空と床の照り返し
 scene.add(new THREE.HemisphereLight(0xffffff, 0xcfc9bf, 0.45));
