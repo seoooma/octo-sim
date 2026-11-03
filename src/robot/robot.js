@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeMaterials } from './materials.js';
-import { buildBody, ARM_BASE_Y } from './body.js';
+import { buildBody } from './body.js';
 import { buildCore } from './core.js';
 import { buildBeak } from './beak.js';
 import { buildSiphon } from './siphon.js';
@@ -14,14 +14,12 @@ export class Robot {
   constructor() {
     const m = (this.materials = makeMaterials());
     this.group = new THREE.Group();     // 位置と向き(泳ぐ)
-    this.torso = new THREE.Group();     // 胴(呼吸と噴射でふくらみ・縮む。腕は入れない)
     this.body = buildBody(m);
     this.core = buildCore(m);
     this.beak = buildBeak(m);
     this.siphon = buildSiphon(m);
     this.arms = new Arms(m);
-    this.torso.add(this.body.group, this.core.group, this.beak.group, this.siphon.group);
-    this.group.add(this.torso, this.arms.group);
+    this.group.add(this.body.group, this.core.group, this.beak.group, this.siphon.group, this.arms.group);
     this.group.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = o.material !== m.bubble;   // 泡は影を落とさない
@@ -79,22 +77,16 @@ export class Robot {
       s.rot[2] + 0.05 * Math.sin(0.41 * t + 1),
     );
     this.group.updateMatrixWorld(true);
-    // 呼吸と噴射: 外套がゆっくりふくらんで縮む。噴射では脈ごとに強く縮んで(水を押し出す)縦に伸びる
+    // 胴は硬い殻なので伸び縮みさせない(2026-11-03 ユーザーの指示)。噴射の脈は腕の開き閉じだけに出す
     const pulse = pulseAt(t);
-    const breath = Math.sin((2 * Math.PI * t) / 3.4);
-    const sx = 1 + 0.014 * breath - 0.075 * s.jet * pulse;
-    const sy = 1 - 0.01 * breath + 0.045 * s.jet * pulse;
-    this.torso.scale.set(sx, sy, sx);
-    this.torso.position.y = ARM_BASE_Y * (1 - sy);   // 腕の付け根の高さを中心に伸び縮み
     if (draw) {
-      this.torso.updateMatrixWorld(true);
-      const look = camera ? this.torso.worldToLocal(v.copy(camera.position)) : null;
+      const look = camera ? this.group.worldToLocal(v.copy(camera.position)) : null;
       this.body.update(t, s.mantleOpen, s.opticsScan, ex, look);
       this.core.update(t, Math.max(s.mantleOpen, ex), s.jet);
       this.beak.update(t, Math.max(s.beakOpen, ex * 0.5));
       this.siphon.update(t, s.siphonOpen, jetAt, d.wake);
     }
-    const o = { apart: s.armApart, exploded: ex, jet: s.jet, pulse, squash: sx, soft: d.soft };
+    const o = { apart: s.armApart, exploded: ex, jet: s.jet, pulse, soft: d.soft };
     this.arms.update(t, poseAt, o, this.group.matrixWorld, dt, reset, draw);
   }
 }

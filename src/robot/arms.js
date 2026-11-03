@@ -224,8 +224,8 @@ export class Arms {
     return out;
   }
 
-  // 腕 k のカーブを刻む。t は時刻(ゆらぎ)、p は形、len は長さ(ばらすと伸びる)、wave は揺れの強さ、sx は胴のふくらみ(付け根が外へ動く)
-  trace(k, t, p, len, wave, sx = 1) {
+  // 腕 k のカーブを刻む。t は時刻(ゆらぎ)、p は形、len は長さ(ばらすと伸びる)、wave は揺れの強さ
+  trace(k, t, p, len, wave) {
     const a = armAngle(k);
     const phase = k * 1.37;
     const mirror = ARM_NAMES[k][0] === 'R' ? -1 : 1;
@@ -235,7 +235,7 @@ export class Arms {
     const T = D.clone().multiplyScalar(Math.cos(e)).addScaledVector(up, Math.sin(e));
     const N = D.clone().multiplyScalar(Math.sin(e)).addScaledVector(up, -Math.cos(e));
     const B = new THREE.Vector3().crossVectors(T, N);
-    const pos = D.clone().multiplyScalar(ARM_BASE_R * sx).setY(ARM_BASE_Y);
+    const pos = D.clone().multiplyScalar(ARM_BASE_R).setY(ARM_BASE_Y);
     const ds = len / STEPS;
     const t2 = new THREE.Vector3();
     for (let i = 0; i <= STEPS; i++) {
@@ -331,6 +331,18 @@ export class Arms {
       const w = f - i0;
       for (let c = 0; c < 3; c++) P[j * 3 + c] += dl[i0 * 3 + c] * (1 - w) + dl[(i0 + 1) * 3 + c] * w;
     }
+    // 腕は伸び縮みさせない: 付け根から順に、刻みの間隔を元の長さに戻す(ずれた向きはそのまま)
+    const ds = len / STEPS;
+    for (let j = 1; j <= STEPS; j++) {
+      const a = (j - 1) * 3, b = j * 3;
+      v.set(P[b] - P[a], P[b + 1] - P[a + 1], P[b + 2] - P[a + 2]);
+      const l = v.length();
+      if (l < 1e-9) continue;
+      v.multiplyScalar(ds / l);
+      P[b] = P[a] + v.x;
+      P[b + 1] = P[a + 1] + v.y;
+      P[b + 2] = P[a + 2] + v.z;
+    }
     // 曲がったカーブに合わせて向きを作り直す(進む向きは前後の点の差、腹側は元の向きから直交させる)
     for (let j = 0; j <= STEPS; j++) {
       const a = Math.max(0, j - 1) * 3, b = Math.min(STEPS, j + 1) * 3;
@@ -364,7 +376,7 @@ export class Arms {
   }
 
   // t: 時刻、poseFn: 時刻 → 形の重み(腕ごとに少しずらして呼ぶ)、
-  // o: { apart: 台本でばらす量(R2 だけ), exploded: 分解図, jet: 噴射, pulse: 噴射の脈, squash: 胴のふくらみ, soft: やわらかさ }
+  // o: { apart: 台本でばらす量(R2 だけ), exploded: 分解図, jet: 噴射, pulse: 噴射の脈, soft: やわらかさ }
   // world: 腕の親(ロボット)の世界の行列、dt: 前のコマからの秒、reset: やわらかさを今の形に合わせ直す、draw: 置き場所を書くか(助走では書かない)
   update(t, poseFn, o, world, dt, reset = false, draw = true) {
     const m = this.m;
@@ -387,7 +399,7 @@ export class Arms {
       p.e = p.e * (1 - a) + 0.12 * a;   // ばらすときは横へまっすぐ伸ばす
       this.curls[name] = p.curl;
       const stretch = 1 + APART_STRETCH * a;
-      this.trace(k, t, p, L * stretch, (1 - 0.5 * pose.star) * (1 - a), o.squash);
+      this.trace(k, t, p, L * stretch, (1 - 0.5 * pose.star) * (1 - a));
       this.soften(k, world, dt, reset, o.soft ? 1 - 0.8 * a : 0);
       if (!draw) continue;
       // 輪の位置は付け根からの距離ごと伸ばす(すき間が開く)
