@@ -1,0 +1,8 @@
+node_modules/
+dist/
+out/
+*.png
+*.jpg
+*.mp4
+*.webm
+.DS_Store
