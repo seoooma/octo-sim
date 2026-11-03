@@ -5,9 +5,10 @@ import { buildCore } from './core.js';
 import { buildBeak } from './beak.js';
 import { buildSiphon } from './siphon.js';
 import { Arms } from './arms.js';
-import { jetAt, poseAt, pulseAt } from '../sim/timeline.js';
+import { jetAt, poseAt, pulseAt, strokeAt } from '../sim/timeline.js';
 
 const v = new THREE.Vector3();
+const heading = new THREE.Vector3();
 
 // ロボット全体。台本の状態(sim/timeline.js の evaluate)と表示の切り替えを受けて、各部を動かす。
 export class Robot {
@@ -70,16 +71,19 @@ export class Robot {
     // 漂い: 止まっているときもゆっくり揺れて、少し向きを変える(腕が遅れてついてくる)
     this.group.position.fromArray(s.pos);
     this.group.position.x += 0.07 * Math.sin(0.37 * t) * hold;
-    this.group.position.y += 0.08 * Math.sin(0.8 * t) + 0.025 * Math.sin(1.9 * t + 1);
+    // ひとかきから 0.3 秒遅れて少し浮く(腕で水をかいて浮いて見える)
+    this.group.position.y += 0.06 * Math.sin(0.8 * t) + 0.02 * Math.sin(1.9 * t + 1) + 0.05 * strokeAt(t - 0.3) * hold;
     this.group.position.z += 0.05 * Math.sin(0.29 * t + 2) * hold;
     this.group.rotation.set(
       s.rot[0] + 0.04 * Math.sin(0.53 * t),
       s.rot[1] + d.spin + 0.3 * Math.sin(0.42 * t) * hold,
       s.rot[2] + 0.05 * Math.sin(0.41 * t + 1),
     );
-    this.group.updateMatrixWorld(true);
-    // 胴は硬い殻なので伸び縮みさせない(2026-11-03 ユーザーの指示)。噴射の脈は腕の開き閉じだけに出す
+    // 胴は硬い殻なので伸び縮みさせない(2026-11-03 ユーザーの指示)。噴射の脈は、腕の開き閉じと、頭の向きへのひと押しに出す
     const pulse = pulseAt(t);
+    heading.set(0, 1, 0).applyEuler(this.group.rotation);
+    this.group.position.addScaledVector(heading, 0.06 * s.jet * pulse);
+    this.group.updateMatrixWorld(true);
     if (draw) {
       const look = camera ? this.group.worldToLocal(v.copy(camera.position)) : null;
       this.body.update(t, s.mantleOpen, s.opticsScan, ex, look);
@@ -87,7 +91,7 @@ export class Robot {
       this.beak.update(t, Math.max(s.beakOpen, ex * 0.5));
       this.siphon.update(t, s.siphonOpen, jetAt, d.wake);
     }
-    const o = { apart: s.armApart, exploded: ex, jet: s.jet, pulse, soft: d.soft };
+    const o = { apart: s.armApart, exploded: ex, jet: s.jet, pulse, windup: s.windup, soft: d.soft };
     this.arms.update(t, poseAt, o, this.group.matrixWorld, dt, reset, draw);
   }
 }

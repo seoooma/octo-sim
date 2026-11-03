@@ -12,7 +12,7 @@ const SHOTS = {
   optics: { pos: [2.0, 0.5, 5.8], target: [0.1, -0.2, 0.6], fov: 28, follow: 1 },
   beak: { pos: [0.3, -3.9, 11.4], target: [0, -0.9, 0], fov: 30, follow: 1 },
   siphon: { pos: [-7.0, -1.8, -5.6], target: [0, -1.0, -0.5], fov: 30, follow: 1 },
-  depart: { pos: [-0.8, 1.0, 9.2], target: [0.6, 0, 0], fov: 30, follow: 0.55 },
+  depart: { pos: [-0.8, 1.0, 9.2], target: [0.6, 0, 0], fov: 30, follow: 0.15 },   // ほとんど追わず、画面の外へ出ていく
 };
 const BLEND = 1.6;       // 構図を切り替える時間(秒)
 const IDLE_BACK = 4;     // 手で回したあと、何秒で段取りに戻るか(再生中だけ。止めているあいだは戻さない)

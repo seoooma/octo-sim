@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ARM_COUNT, ARM_BASE_R, ARM_BASE_Y, armAngle } from './body.js';
 import { smoothstep, fract, hash } from '../util.js';
+import { pulseAt, strokeAt } from '../sim/timeline.js';
 
 // 腕 = 中心線のカーブに沿って、輪(白い筒+赤い車輪2つ)とばねを交互に並べたもの。
 // カーブは付け根から先へ「曲がり具合」を足していって作る(腹側へ曲げる bend、横へ曲げる side、先の巻き curl)。
@@ -14,16 +15,20 @@ const LINK = 1.5;       // 輪の長さ(半径の何倍か)
 const GAP = 0.55;       // 輪と輪のすき間(ばねの部分)
 const APART_STRETCH = 0.7;   // ばらしたとき、腕がどれだけ伸びるか(1 なら 2 倍)
 const WHEEL_DROP = 1.1;      // ばらしたとき、車輪が輪から離れる距離(輪の半径の何倍か)
-const STAGGER = 0.07;        // 形が変わるとき、腕ごとに何秒ずつ遅らせるか(波のように伝わる)
+// 形が変わるとき、前の腕から後ろの腕へ順に遅らせる(左右は同じ順位なので正面に継ぎ目が出ない)。少しずつばらつかせる
+const RANK = { L1: 0, R1: 0, L2: 1, R2: 1, L3: 2, R3: 2, L4: 3, R4: 3 };
+const STAGGER = 0.12;
 
 // やわらかさ(腕の節をばねと水の抵抗で追わせる)。付け根は硬く、先はやわらかい
 const NODES = 24;            // 1 本の腕の節の数
 const SIM_H = 1 / 120;       // 計算の刻み(秒)
 const K_BASE = 260;          // 付け根のばね(大きいほどすぐ追う)
 const K_TIP = 9;             // 先のばね(小さいほど遅れて揺れる)
-const DRAG = 1.7;            // 水の抵抗(小さいほど揺れが長く残る)
+const DRAG = 1.7;            // 水の抵抗(世界の中の速さにかかる。泳ぐと先がなびく)
+const ZETA_BASE = 0.6;       // 形からのずれの揺れの減り方(付け根)。噴射の脈と共振しないように節ごとに決める
+const ZETA_TIP = 0.35;       // 同(先。小さいほど揺れが残る)
 const COUPLE = 40;           // となりの節とのつながり(ずれが付け根から先へ伝わる)
-const MAX_LAG = 1.0;         // 先のずれの上限
+const MAX_LAG = 1.0;         // 先のずれの上限(なめらかに頭打ちにする)
 
 // 作業用(毎コマ new しない)
 const v = new THREE.Vector3();
@@ -38,10 +43,11 @@ const tPos = new THREE.Vector3();
 const tTmp = new THREE.Vector3();
 const POSE_KEYS = ['hold', 'trail', 'star'];
 
-// 手探りのしぐさ: 腕ごとに 9 秒に 1 回くらい、2 秒ほどかけて伸びてほどけ、また巻く
+// 手探りのしぐさ: 腕ごとに 9 秒に 1 回くらい、0.6 秒で伸びてほどけ、1.4 秒かけてまた巻く
 function reachAt(t, k) {
-  const ph = fract(t / 9 + hash(k * 3.7));
-  return ph < 0.22 ? Math.sin((Math.PI * ph) / 0.22) ** 2 : 0;
+  const x = fract(t / 9 + hash(k * 3.7)) / 0.22;
+  if (x >= 1) return 0;
+  return x < 0.3 ? smoothstep(0, 0.3, x) : 1 - smoothstep(0.3, 1, x);
 }
 
 export const radiusAt = (s) => R0 * (1 - (TAPER * Math.min(s, L)) / L);
@@ -58,11 +64,11 @@ const POSES = {
     L1: { e: -0.75, bend: -0.45, side: 0.22, curl: 0.9 },
     L2: { e: 0.05, bend: 0.12, side: -0.1, curl: 0.74 },
     L3: { e: 0.6, bend: 0.5, side: 0.05, curl: 0.89 },
-    L4: { e: 1.15, bend: 0.6, side: -0.2, curl: 0.72 },
+    L4: { e: 1.15, bend: 0.6, side: -0.45, curl: 0.72 },
     R1: { e: -0.7, bend: -0.4, side: 0.18, curl: 0.68 },
     R2: { e: 0.1, bend: 0.18, side: 0.12, curl: 0.9 },
     R3: { e: 0.65, bend: 0.45, side: -0.05, curl: 0.77 },
-    R4: { e: 1.1, bend: 0.65, side: 0.2, curl: 0.85 },
+    R4: { e: 1.1, bend: 0.65, side: 0.45, curl: 0.85 },
   },
   trail: {},
   star: {},
@@ -70,7 +76,8 @@ const POSES = {
 ARM_NAMES.forEach((n, k) => {
   // なびく腕は付け根から真下へ(体を傾けると後ろへ流れる)。少しずつ違えて束に見せる
   POSES.trail[n] = { e: -1.32 + 0.05 * Math.sin(k * 2.1), bend: 0.06 * Math.cos(k * 1.7), side: 0.06 * Math.sin(k * 1.3), curl: 0.22 + 0.08 * Math.sin(k * 0.9) };
-  POSES.star[n] = { e: 0.08 + 0.04 * Math.sin(k * 1.9), bend: -0.05, side: 0.03 * Math.cos(k), curl: 1.0 - 0.03 * (k % 3) };
+  // 放射状の腕も 1 本ずつ違えて、棒の並びに見せない
+  POSES.star[n] = { e: 0.08 + 0.04 * Math.sin(k * 1.9), bend: -0.05 + 0.25 * (hash(k + 5) * 2 - 1), side: 0.15 * (hash(k + 9) * 2 - 1), curl: 0.75 + 0.45 * hash(k + 2) };
 });
 
 // 輪 1 個の形(半径 1。軸は y、腹側は +z、横は x)。材質ごとにまとめる
@@ -210,11 +217,14 @@ export class Arms {
     this.len = L;
     this.curls = Object.fromEntries(ARM_NAMES.map((n) => [n, POSES.hold[n].curl]));
     this.mtx = new THREE.Matrix4();
-    this.blendOut = { e: 0, bend: 0, side: 0, curl: 0 };
+    this.blendOut = { e: 0, bend: 0, side: 0, curl: 0, reach: 0, jetWave: 0 };
 
     // やわらかさの状態(腕ごと): 節の位置(世界)・1 つ前の位置・目標・ずれ
     const buf = () => new Float32Array(NODES * 3);
-    this.sim = Array.from({ length: ARM_COUNT }, () => ({ x: buf(), xp: buf(), tgt: buf(), prev: buf(), cur: buf(), d: buf(), dl: buf(), ready: false }));
+    this.sim = Array.from({ length: ARM_COUNT }, () => ({ x: buf(), xp: buf(), tgt: buf(), prev: buf(), cur: buf(), d: buf(), dp: buf(), dl: buf(), ready: false }));
+    // 節ごとのばねと、ずれの揺れの減り方(c = 2ζ√k)
+    this.kNode = Float32Array.from({ length: NODES }, (_, i) => K_TIP + (K_BASE - K_TIP) * (1 - i / (NODES - 1)) ** 2);
+    this.cNode = Float32Array.from(this.kNode, (kk, i) => 2 * (ZETA_BASE + (ZETA_TIP - ZETA_BASE) * (i / (NODES - 1))) * Math.sqrt(kk));
     this.inv = new THREE.Matrix4();
     this.invRot = new THREE.Matrix3();
   }
@@ -237,11 +247,16 @@ export class Arms {
   }
 
   // 腕 k のカーブを刻む。t は時刻(ゆらぎ)、p は形、len は長さ(ばらすと伸びる)、wave は揺れの強さ
+  // p.reach: 手探り(巻きの始まりが先へずれてほどける)、p.jetWave: 噴射でなびく強さ(脈で付け根から先へ閉じる)
   trace(k, t, p, len, wave) {
     const a = armAngle(k);
     const phase = k * 1.37;
     const mirror = ARM_NAMES[k][0] === 'R' ? -1 : 1;
-    const e = p.e + 0.08 * Math.sin(0.7 * t + phase);
+    // 腕ごとにテンポを変え、強さもゆっくり変える(いつも 1〜2 本がよく動く)
+    const tk = t * (0.8 + 0.4 * hash(k + 11));
+    wave *= 0.6 + 0.4 * Math.sin(0.21 * t + 2.3 * k);
+    const r = p.reach;
+    const e = p.e + 0.08 * Math.sin(0.7 * tk + phase);
     const D = tD.set(Math.sin(a), 0, Math.cos(a));
     const T = tT.copy(D).multiplyScalar(Math.cos(e)).addScaledVector(UP, Math.sin(e));
     const N = tN.copy(D).multiplyScalar(Math.sin(e)).addScaledVector(UP, -Math.cos(e));
@@ -256,11 +271,13 @@ export class Arms {
       B.toArray(this.B, i * 3);
       const s = i * ds;
       const u = s / len;
-      // 先の巻き: 先へ行くほど急に曲がる(対数らせん)。背中側へ巻くので車輪は外を向く
-      const kc = ((-p.curl * 3.4) / (len - s + 0.16)) * smoothstep(0.4, 0.72, u);
+      // 先の巻き: 先へ行くほど急に曲がる(対数らせん)。背中側へ巻くので車輪は外を向く。手探りでは始まりが先へずれてほどける
+      const kc = ((-p.curl * 4.0) / (len - s + 0.3)) * smoothstep(0.3 + 0.4 * r, 0.62 + 0.3 * r, u);
       // 付け根から先へ進む 2 つの波(先ほど大きく揺れる)
-      const kv = p.bend * (1 - 0.4 * u) + kc + wave * u * (0.2 * Math.sin(1.3 * t - 4 * u + phase) + 0.08 * Math.sin(2.3 * t - 7 * u + 2 * phase));
-      const kh = mirror * p.side * (1 - u) + wave * u * (0.16 * Math.sin(0.9 * t - 3 * u + phase * 0.7) + 0.06 * Math.sin(1.9 * t - 6 * u + phase));
+      let kv = p.bend * (1 - 0.4 * u) + kc + wave * u * (0.2 * Math.sin(1.3 * tk - 4 * u + phase) + 0.08 * Math.sin(2.3 * tk - 7 * u + 2 * phase));
+      // 噴射: 押し出すとき腕を閉じる。付け根から先へ 0.25 秒遅れて伝わる
+      if (p.jetWave > 0) kv += p.jetWave * 0.6 * (pulseAt(t - 0.25 * u) - 0.5);
+      const kh = mirror * p.side * (1 - u) + wave * u * (0.16 * Math.sin(0.9 * tk - 3 * u + phase * 0.7) + 0.06 * Math.sin(1.9 * tk - 6 * u + phase));
       pos.addScaledVector(T, ds);
       // 腹側へ kv、横へ kh だけ向きを回す
       const cv = Math.cos(kv * ds), sv = Math.sin(kv * ds);
@@ -297,12 +314,14 @@ export class Arms {
     if (reset || !S.ready) {
       S.x.set(S.tgt);
       S.xp.set(S.tgt);
+      S.dp.fill(0);
       S.ready = true;
     } else if (dt > 0) {
       const steps = Math.min(12, Math.max(1, Math.ceil(dt / SIM_H - 1e-6)));
       const h = dt / steps;
       const keep = Math.max(0, 1 - DRAG * h);
-      const { x, xp, tgt, prev, cur, d } = S;
+      const { x, xp, tgt, prev, cur, d, dp } = S;
+      const kN = this.kNode, cN = this.cNode;
       for (let st = 1; st <= steps; st++) {
         const f = st / steps;
         // この刻みの目標(前のコマの目標から線で補う)と、目標からのずれ
@@ -311,17 +330,28 @@ export class Arms {
           d[j] = x[j] - cur[j];
         }
         for (let i = 1; i < NODES; i++) {
-          const u = i / (NODES - 1);
-          const kk = K_TIP + (K_BASE - K_TIP) * (1 - u) * (1 - u);
           const ip = (i - 1) * 3, ic = i * 3, inx = (i < NODES - 1 ? i + 1 : i) * 3;
           for (let c = 0; c < 3; c++) {
-            const acc = -kk * d[ic + c] + COUPLE * (d[ip + c] + d[inx + c] - 2 * d[ic + c]);
-            const p0 = x[ic + c];
-            x[ic + c] = p0 + (p0 - xp[ic + c]) * keep + acc * h * h;
-            xp[ic + c] = p0;
+            const j = ic + c;
+            const acc = -kN[i] * d[j] - cN[i] * (d[j] - dp[j]) / h + COUPLE * (d[ip + c] + d[inx + c] - 2 * d[j]);
+            const p0 = x[j];
+            x[j] = p0 + (p0 - xp[j]) * keep + acc * h * h;
+            xp[j] = p0;
           }
         }
+        dp.set(d);
         for (let c = 0; c < 3; c++) x[c] = xp[c] = cur[c];   // 付け根は目標に留める
+        // 節の間隔を目標の間隔へ戻す(付け根から順に。1 つ前の位置も同じだけ動かして速さは変えない)
+        for (let i = 1; i < NODES; i++) {
+          const a = (i - 1) * 3, b = i * 3;
+          const rest = Math.hypot(cur[b] - cur[a], cur[b + 1] - cur[a + 1], cur[b + 2] - cur[a + 2]);
+          v.set(x[b] - x[a], x[b + 1] - x[a + 1], x[b + 2] - x[a + 2]);
+          const l = v.length();
+          if (l < 1e-9) continue;
+          v.multiplyScalar(rest / l - 1);
+          x[b] += v.x; x[b + 1] += v.y; x[b + 2] += v.z;
+          xp[b] += v.x; xp[b + 1] += v.y; xp[b + 2] += v.z;
+        }
       }
     }
     S.prev.set(S.tgt);
@@ -330,9 +360,14 @@ export class Arms {
     for (let i = 0; i < NODES; i++) {
       const j = i * 3;
       v.set(S.x[j] - S.tgt[j], S.x[j + 1] - S.tgt[j + 1], S.x[j + 2] - S.tgt[j + 2]).applyMatrix3(this.invRot);
+      // 腕に沿った向きのずれは除く(曲がりだけを足す)
+      vt.fromArray(this.T, Math.round((i / (NODES - 1)) * STEPS) * 3);
+      v.addScaledVector(vt, -v.dot(vt));
+      // 上限でぷつりと切らず、なめらかに頭打ちにする
       const max = MAX_LAG * (i / (NODES - 1));
       const l = v.length();
-      if (l > max) v.multiplyScalar(max / l);
+      if (l > 1e-9 && max > 0) v.multiplyScalar((max * Math.tanh(l / max)) / l);
+      else v.set(0, 0, 0);
       v.multiplyScalar(amount).toArray(S.dl, j);
     }
     const P = this.P, T = this.T, N = this.N, B = this.B, dl = S.dl;
@@ -387,7 +422,7 @@ export class Arms {
   }
 
   // t: 時刻、poseFn: 時刻 → 形の重み(腕ごとに少しずらして呼ぶ)、
-  // o: { apart: 台本でばらす量(R2 だけ), exploded: 分解図, jet: 噴射, pulse: 噴射の脈, soft: やわらかさ }
+  // o: { apart: 台本でばらす量(R2 だけ), exploded: 分解図, jet: 噴射, pulse: 噴射の脈, windup: 出ていく前の吸い込み, soft: やわらかさ }
   // world: 腕の親(ロボット)の世界の行列、dt: 前のコマからの秒、reset: やわらかさを今の形に合わせ直す、draw: 置き場所を書くか(助走では書かない)
   update(t, poseFn, o, world, dt, reset = false, draw = true) {
     const m = this.mtx;
@@ -396,15 +431,21 @@ export class Arms {
     this.invRot.setFromMatrix4(this.inv);
     for (let k = 0; k < ARM_COUNT; k++) {
       const name = ARM_NAMES[k];
-      const pose = poseFn(t - k * STAGGER);
+      const pose = poseFn(t - STAGGER * RANK[name] - 0.06 * hash(k));
       const a = Math.max(k === DETACH_ARM ? o.apart : 0, o.exploded * 0.45);
       const p = this.blend(k, pose);
       const reach = reachAt(t, k) * pose.hold * (1 - a);
+      p.reach = reach;
       p.e += 0.3 * reach;
       p.side += 0.22 * reach * (k % 2 ? 1 : -1);
       p.curl *= (1 - 0.4 * reach) * (0.9 + 0.1 * Math.sin(0.6 * t + k * 1.9)) * (1 - 0.75 * a);
-      // 噴射: 水を押し出すとき腕を閉じ、吸い込むとき開く(イカの泳ぎ)
-      p.e += pose.trail * o.jet * 0.32 * (0.5 - o.pulse);
+      // ひとかき(ふだん): 腕を少し閉じる。出ていく前の吸い込み: 腕を開いて先を巻く
+      p.e -= 0.1 * strokeAt(t - 0.03 * RANK[name]) * pose.hold;
+      p.e += 0.25 * o.windup;
+      p.curl *= 1 + 0.3 * o.windup;
+      // 噴射: 水を押し出すとき腕を閉じ、吸い込むとき開く(イカの泳ぎ)。曲がりの波は trace で付け根から先へ
+      p.e += pose.trail * o.jet * 0.12 * (0.5 - o.pulse);
+      p.jetWave = pose.trail * o.jet;
       p.bend *= 1 - 0.7 * a;
       p.side *= 1 - 0.7 * a;
       p.e = p.e * (1 - a) + 0.12 * a;   // ばらすときは横へまっすぐ伸ばす

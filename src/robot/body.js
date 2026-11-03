@@ -8,10 +8,11 @@ const t1 = new THREE.Vector3();
 const t2 = new THREE.Vector3();
 const EYE_TURN = 0.32;   // 目が向きを変えられる角度(ラジアン)
 
-// 目のちらっと動く向き(1.4 秒ごとに次の向きへ、0.16 秒で移る)。両目は同じ向きへ
+// 目のちらっと動く向き(だいたい 1.4 秒ごとに次の向きへ、0.16 秒で移る。間隔は少しずつ揺らす)。両目は同じ向きへ
 function saccade(t, scan) {
-  const n = Math.floor(t / 1.4);
-  const f = smootherstep(0, 0.16, t - n * 1.4);
+  const tt = t + 0.4 * Math.sin(0.9 * t);
+  const n = Math.floor(tt / 1.4);
+  const f = smootherstep(0, 0.16, tt - n * 1.4);
   const amp = 1 + 2 * scan;
   const o = (i) => [(hash(i * 1.3) - 0.5) * 0.16 * amp, (hash(i * 2.9 + 4) - 0.5) * 0.12 * amp];
   const a = o(n - 1), b = o(n);
