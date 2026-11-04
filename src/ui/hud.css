@@ -195,10 +195,12 @@ footer i { color: var(--orange); font-style: normal; letter-spacing: 0.05em; }
 #hud.compact:not(.portrait) .btns { flex-direction: column; flex-wrap: nowrap; gap: 4px; }
 #hud.compact:not(.portrait) .btns button { width: 100%; text-align: left; min-height: 30px; }
 /* 縦向き: 下に ASSEMBLIES(3 列×2 段)と DISPLAY(横に流せる 1 段) */
-#hud.compact.portrait .mode { right: auto; left: 12px; top: 60px; text-align: left; }
+#hud.compact.portrait .mode { right: auto; left: 12px; top: 88px; text-align: left; }
 #hud.compact.portrait .mode b { font-size: 20px; }
-#hud.compact.portrait .vtag.right { top: 92px; }
-#hud.compact.portrait .species { left: auto; right: 8px; top: 60px; }
+#hud.compact.portrait .vtag.right { top: 120px; }
+/* 生き物のボタンは帯の下に 1 段で横いっぱい(5 つ並ぶと大きな文字の横には収まらない)。狭すぎる端末では横に流す */
+#hud.compact.portrait .species { left: 8px; right: 8px; top: 58px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+#hud.compact.portrait .species button { flex: 1 0 auto; padding: 5px 6px; }
 #hud.compact.portrait .dock { left: 8px; right: 8px; bottom: 80px; flex-direction: column; }
 #hud.compact.portrait .p-asm .btns { display: grid; grid-template-columns: repeat(3, 1fr); }
 #hud.compact.portrait .p-disp .btns { flex-wrap: nowrap; overflow-x: auto; }
