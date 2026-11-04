@@ -11,6 +11,7 @@ const SPECIES = [
   { id: 'spider', label: 'SPIDER', load: () => import('./creatures/spider/index.js') },
   { id: 'scorpion', label: 'SCORPION', load: () => import('./creatures/scorpion/index.js') },
   { id: 'crab', label: 'CRAB', load: () => import('./creatures/crab/index.js') },
+  { id: 'jellyfish', label: 'JELLYFISH', load: () => import('./creatures/jellyfish/index.js') },
 ];
 
 // URL の指定:
