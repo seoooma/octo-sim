@@ -9,6 +9,7 @@ import { Labels } from './ui/labels.js';
 const SPECIES = [
   { id: 'octopus', label: 'OCTOPUS', load: () => import('./creatures/octopus/index.js') },
   { id: 'spider', label: 'SPIDER', load: () => import('./creatures/spider/index.js') },
+  { id: 'scorpion', label: 'SCORPION', load: () => import('./creatures/scorpion/index.js') },
 ];
 
 // URL の指定:
