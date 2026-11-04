@@ -1,6 +1,6 @@
 # octo-sim — 作業ルール(Claude Code 向け)
 
-タコ型ロボットの 3D シミュレーター風 Web ページ(three.js)。真ん中に 3D のロボット、まわりに計器の UI。
+生き物をメカにしたロボットの 3D シミュレーター風 Web ページ(three.js。タコ・蜘蛛・サソリ・カニ・クラゲ)。真ん中に 3D のロボット、まわりに計器の UI。
 見本は bilibili の「Pelagos OC-8」の画面(2026-11-03 にユーザーが 2 枚の画像で見せた。白い外装・オレンジの差し色・8 本の腕・外套が開く)。形は真似るが、名前やロゴは自分たちのものにする。
 ユーザーは日本語で話す。返事・コミットメッセージ・コード中のコメントは日本語で書く。画面の文字は英語(見本と同じ)。
 粒子の動画(~/particle)・2D 物理ショート(~/shorts2d)とは別のプロジェクト。
@@ -28,7 +28,18 @@
   - `layout.js` 寸法(輪 WEB・縦糸・横糸・脚の付け根と足を置く場所・脚の長さ)、`path.js` 体の道と足の運び、`web.js` 輪と糸、`model.js` 形と IK、`timeline.js`・`telemetry.js`・`hud.js`(GAIT の図・LEG LOAD・STANCE)・`shots.js`
   - 歩き方(path.js): 面(床・巣)の上を「位置 + 向き」で動かし、歩数の元 g = 進んだ道のりと向きの変わり。脚の位相 = g / 歩幅 + ずらし(交互の 4 本ずつ)。前半 6 割は足を面に置き、後半で次へ運ぶ。置く場所は「その立脚の真ん中の時刻に体がいる場所での、ふだんの足の位置」。止まると運んでいる足も下ろす(activityAt)
   - 関節(model.js): 足から上・付け根側へ足首を決め、付け根〜足首を 2 本の骨の IK で解く(膝は体の上へ)。確かめ: `node tools/check/spider_gait.mjs`(足のすべり・付け根から足までの距離・歩く速さ)
-- 名前は自分たちのもの(Benthos BX-8 / AX-8、BENTHOS ROBOTICS)。見本の Pelagos OC-8 は使わない
+- **サソリ(scorpion, Benthos SC-8)**: 31 秒・7 操作。床を歩いて入る → はさみを開いて持ち上げる → 尾を背中の上へ弓なりに → 前へ 2 回刺す(13.6・14.85) → 紫外線で背板の継ぎ目が青緑に光る → 床の箱をはさんで顔の前へ → 向きを変えて歩き去る
+  - `layout.js` 寸法と台本の時刻、`path.js` 体の道と足、`tail.js` 尾(5 節 + 毒針、先ほど遅れる)、`claws.js` はさみ、`shapes.js` 背板の形、`model.js`、`timeline.js`・`telemetry.js`・`hud.js`(GAIT・METASOMA・STANCE)・`shots.js`
+  - 確かめ: `node tools/check/scorpion_gait.mjs`(足のすべり・脚とはさみが届くか・箱)、`node tools/check/scorpion_frame.mjs`(見どころで体が計器にかからないか。ブラウザなし)
+- **カニ(crab, Benthos CR-10)**: 31 秒・7 操作。右から横歩きで入る → 目の柄を立てて見回す → 立ち上がってはさみを 2 回閉じる → 左のはさみで団塊をつまんで口へ → 甲羅が後ろの蝶番で 62° 開いて中の歯車・えら・ポンプ → 口の左右から泡 → 左へ横歩きで去る
+  - 横歩きは体の向きはそのまま横へ(core/walk.js)。左右の脚は交互(L1・L3・R2・R4 と L2・L4・R1・R3)。はさみは右が大きい CRUSHER、左が CUTTER
+  - `layout.js`・`path.js`・`shell.js`(甲羅・胴・中の機械)・`claws.js`・`face.js`(目の柄・口)・`fx.js`(泡)・`model.js`、`timeline.js`・`telemetry.js`・`hud.js`(GAIT・LEG LOAD・STANCE)・`shots.js`
+  - 確かめ: `node tools/check/crab_gait.mjs`、`crab_frame.mjs`(構図。ブラウザなし)、`crab_ui.mjs`(CRAB への切り替えとボタン)
+- **クラゲ(jellyfish, Benthos JL-1)**: 30 秒・8 操作。上から沈んで入る → 傘の脈で弧を描いて昇る → 触手を広げて網 → 口腕を広げる → 光の波 → 傘の板が花のように開いて中のジャイロ・ポンプの輪 → 驚いて強く打って逃げる → 上へ去る(t=0 とつながる)
+  - 傘は大きさを変えない。16 枚の板が蝶番で閉じて押し(`bell.js` の CLOSE = 0.2 rad)、ゆっくり開いて惰性で滑る。漂うあいだは少しずつ沈む
+  - 触手は付け根から先ほど「少し前の時刻に縁があった場所」をたどる(時刻だけで決まり、自然になびく)
+  - `swim.js` 体の道、`bell.js` 傘と中の機械、`tentacles.js`、`oral.js` 口腕、`lumen.js` 光、`model.js`、`timeline.js`・`telemetry.js`・`hud.js`(PULSE・TENTACLES・DEPTH)・`shots.js`
+- 名前は自分たちのもの(Benthos BX-8 / AX-8 / SC-8 / CR-10 / JL-1、BENTHOS ROBOTICS)。見本の Pelagos OC-8 は使わない
 - 見た目は見本に合わせた(2026-11-03 のレビューで画素を測って): 白い殻・暗い金属・オレンジは控えめ・背景は暖かい白
 
 ## 脚で歩く・脚の形の共通の道具(2026-11-04)
@@ -40,13 +51,13 @@
 1. `src/creatures/<名前>/` に index.js(上の決めごと)と、台本・モデル・計器・構図を作る。蜘蛛を見本にする(脚で歩く物は path.js の歩き方を、腕がなびく物はタコの arms.js を使い回す)
 2. `main.js` の `SPECIES` に 1 行足す(`?creature=<名前>` と SPECIMEN のボタンになる)
 3. 静止画(`?creature=<名前>&t=…`)と `tools/clip.mjs` の動きで確かめ、`tools/ui_check.mjs` が通ることを見る
-- 次の候補(2026-11-04 にユーザーが選んだ): サソリ・カニ・クラゲ
+- 2026-11-04 にユーザーが選んだ次の候補(サソリ・カニ・クラゲ)は 3 体とも足した。3 つの worktree(~/octo-sim-wt/<名前>、ブランチ creature/<名前>)で同時に作り、生き物ごとに 1 つのコミットにまとめて main へ入れた
 
 ## コマンド
 - 準備: `npm install`
 - 見る: `npm run dev` → http://localhost:5173(`--host` なので同じ Wi-Fi のスマホからも Mac の IP で開ける)
 - URL の指定: `?creature=spider`(生き物)、`?t=10.5`(その時刻で止めて 1 枚描く)、`?play=0`、`?hud=0`(計器なし)、`?ao=0`(隅の影なし)、`?labels=0` `?exploded` `?turntable` など(表示の切り替え。生き物の DISPLAY の key)、`?snow=0`、`?gui`(調整のつまみ)
-- 静止画: `node tools/shot.mjs out/a.png 't=7.9' out/b.png 't=16.6'`(Vite を立ち上げ、Mac の Chrome をヘッドレスで開いて撮る。人に見せる絵は `SHOT_SCALE=2`、スマホの大きさは `SHOT_W=390 SHOT_H=844`)。台本の見どころ: タコ 1 JETTING・5 HOLDING・7.9 MANTLE・11 ARM R2・13.6 OPTICS・16.6 BEAK・19.8 SIPHON・23.5 DEPARTING、蜘蛛 2.4 WALKING・6.6 PIVOT SCAN・9.6 SPINNERETS・12.2 ASCENDING・17 RADIAL LINES・23 SPIRAL WEAVE・31.4 WEB COMPLETE
+- 静止画: `node tools/shot.mjs out/a.png 't=7.9' out/b.png 't=16.6'`(Vite を立ち上げ、Mac の Chrome をヘッドレスで開いて撮る。人に見せる絵は `SHOT_SCALE=2`、スマホの大きさは `SHOT_W=390 SHOT_H=844`)。台本の見どころ: タコ 1 JETTING・5 HOLDING・7.9 MANTLE・11 ARM R2・13.6 OPTICS・16.6 BEAK・19.8 SIPHON・23.5 DEPARTING、蜘蛛 2.4 WALKING・6.6 PIVOT SCAN・9.6 SPINNERETS・12.2 ASCENDING・17 RADIAL LINES・23 SPIRAL WEAVE・31.4 WEB COMPLETE、サソリ 2.4 WALKING・7.3 CLAW THREAT・11.4 TAIL ARCH・13.82 STING STRIKE・17.3 UV SCAN・24.5 PINCER GRIP・28.4 DEPARTING、カニ 2.4 SIDE WALK・6.9 EYES UP・10.4 CLAW DISPLAY・14.5 GRAB SAMPLE・19.6 CARAPACE UP・24.2 BUBBLE VENT・28.0 DEPARTING、クラゲ 2.6 DRIFTING・7.2 PULSE SWIM・12.3 TENTACLE NET・15.8 ORAL ARMS・19.3 LUMINESCENCE・22.8 BELL OPEN・25.4 RECOIL・28.4 ASCENDING
 - 速さ: `node tools/fps.mjs '' 5`(コマ/秒と、ページのエラー・警告)
 - 動きの確かめ: `node tools/clip.mjs out/a.mp4 14.4 2.4 'hud=0' 15`(開始の秒・長さ・追加のクエリ・コマ/秒。1 コマずつ進めて撮るので実時間より遅いが動きは正しい。並べた一覧 out/a.sheet.png も作る)
 - 操作: `node tools/ui_check.mjs`(ASSEMBLIES・タイムライン・一時停止・EXPLODED・生き物の切り替えが効くか。だめなら終了コード 1)
@@ -58,6 +69,7 @@
 4. レビュー(2026-11-03、ユーザーの依頼「レビュアーを何人か立てて直す」): 動き・見た目・画面と操作・コードの 4 人。直しは 3 つのコミット(不具合と操作 → 動き → 見た目)に分けた
 5. 泳ぎを滑らかに(2026-11-04): 弧の道・脈で押して惰性で滑る・腕のうねり・ブレーキで傘・泡の跡・水の粒
 6. 生き物を増やす(2026-11-04): 共通の部分と生き物の部分に分けた。蜘蛛(歩く・巣を張る)を足した
+   - 同日、サソリ・カニ・クラゲを足した(5 体)。スマホの縦では SPECIMEN のボタンを帯の下に 1 段で横いっぱいに並べ、大きな文字はその下へ
 7. これから: ユーザーの返事を見て直す。静止画を見ながら少しずつ決める
 
 ## レビューの回し方(2026-11-03 に決めた)
